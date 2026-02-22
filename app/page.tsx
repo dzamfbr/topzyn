@@ -1,65 +1,913 @@
-import Image from "next/image";
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type ProductCategory = "topup" | "ml" | "ff";
+
+type Product = {
+  name: string;
+  publisher: string;
+  image: string;
+  popularImage?: string;
+  link: string;
+  category: ProductCategory[];
+  isPopular?: boolean;
+};
+
+type UserSession = {
+  username: string;
+  email: string;
+} | null;
+
+const USER: UserSession = null;
+
+const BANNERS = ["/images/banner1.jpg", "/images/banner2.jpg", "/images/banner3.jpg"];
+const BANNER_LOOP = [...BANNERS, BANNERS[0]];
+
+const PRODUCTS: Product[] = [
+  {
+    name: "Mobile Legends: Bang Bang",
+    publisher: "Moonton",
+    image: "/images/product_mobile_legends_top_up_raypoint.png",
+    popularImage: "/images/product_horizontal_mobile_legends_top_up_raypoint.png",
+    link: "/produk/mobile-legends",
+    category: ["topup", "ml"],
+    isPopular: true,
+  },
+  {
+    name: "Free Fire",
+    publisher: "Garena",
+    image: "/images/product_free_fire_top_up_raypoint.png",
+    popularImage: "/images/product_horizontal_free_fire_top_up_raypoint.png",
+    link: "/produk/free-fire",
+    category: ["topup", "ff"],
+    isPopular: true,
+  },
+  {
+    name: "Magic Chess",
+    publisher: "Moonton",
+    image: "/images/product_magic_chess_top_up_raypoint.png",
+    popularImage: "/images/1780x1000.jpg",
+    link: "/produk/magic-chess",
+    category: ["topup", "ml"],
+    isPopular: true,
+  },
+  {
+    name: "Free Fire MAX",
+    publisher: "Garena",
+    image: "/images/product_free_fire_max_top_up_raypoint.png",
+    popularImage: "/images/1780x1000.jpg",
+    link: "/produk/free-fire-max",
+    category: ["topup", "ff"],
+    isPopular: true,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+  {
+    name: "Product",
+    publisher: "Develop",
+    image: "/images/1000x1000.jpg",
+    link: "#",
+    category: ["topup"],
+    isPopular: false,
+  },
+];
+
+const NAV_LINKS = [
+  { label: "Home", href: "/" },
+  { label: "Leaderboard", href: "#" },
+  { label: "Riwayat", href: "#" },
+  { label: "Kalkulator", href: "#" },
+];
+
+const MAX_VISIBLE = 10;
+
+function FallbackImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [currentSrc, setCurrentSrc] = useState(src);
+
+  useEffect(() => {
+    setCurrentSrc(src);
+  }, [src]);
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      onError={() => setCurrentSrc("/next.svg")}
+    />
+  );
+}
+
+function Icon({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className={className ?? "h-5 w-5"}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {children}
+    </svg>
+  );
+}
+
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M3 10.5L12 3l9 7.5" />
+      <path d="M5 9.5V21h5v-6h4v6h5V9.5" />
+    </Icon>
+  );
+}
+
+function ChartIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M4 20h16" />
+      <path d="M7 17V9" />
+      <path d="M12 17V5" />
+      <path d="M17 17v-4" />
+    </Icon>
+  );
+}
+
+function HistoryIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v4h4" />
+      <path d="M12 7v6l4 2" />
+    </Icon>
+  );
+}
+
+function CalculatorIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <rect x="5" y="3.5" width="14" height="17" rx="2" />
+      <path d="M8 7.5h8" />
+      <path d="M8 11.5h.01" />
+      <path d="M12 11.5h.01" />
+      <path d="M16 11.5h.01" />
+      <path d="M8 15.5h.01" />
+      <path d="M12 15.5h.01" />
+      <path d="M16 15.5h.01" />
+    </Icon>
+  );
+}
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <circle cx="12" cy="8.2" r="3.2" />
+      <path d="M5.8 19a6.2 6.2 0 0 1 12.4 0" />
+    </Icon>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
+function LoginIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M10 17H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4" />
+      <path d="M14 7l4 5-4 5" />
+      <path d="M9 12h9" />
+    </Icon>
+  );
+}
+
+function PlusUserIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 18a5.5 5.5 0 0 1 11 0" />
+      <path d="M18 8v6" />
+      <path d="M15 11h6" />
+    </Icon>
+  );
+}
+
+function LogoutIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M10 17H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h4" />
+      <path d="M14 7l4 5-4 5" />
+      <path d="M9 12h9" />
+    </Icon>
+  );
+}
 
 export default function Home() {
+  const user = USER;
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNavHidden, setIsNavHidden] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showNotification, setShowNotification] = useState<boolean>(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+    return new URLSearchParams(window.location.search).get("logout") === "1";
+  });
+  const [activeTab, setActiveTab] = useState<ProductCategory>("topup");
+  const [visibleCount, setVisibleCount] = useState(MAX_VISIBLE);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [canSlideTransition, setCanSlideTransition] = useState(true);
+
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const desktopToggleRef = useRef<HTMLButtonElement | null>(null);
+  const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
+
+  const popularProducts = useMemo(
+    () => PRODUCTS.filter((item) => item.isPopular).slice(0, 5),
+    [],
+  );
+
+  const filteredProducts = useMemo(
+    () => PRODUCTS.filter((item) => item.category.includes(activeTab)),
+    [activeTab],
+  );
+
+  const displayedProducts = filteredProducts.slice(0, visibleCount);
+  const canLoadMore = visibleCount < filteredProducts.length;
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const updateNavVisibility = () => {
+      const currentScrollY = window.scrollY;
+      const delta = currentScrollY - lastScrollY;
+
+      if (Math.abs(delta) > 6) {
+        if (currentScrollY > 40 && delta > 0) {
+          setIsNavHidden(true);
+        } else {
+          setIsNavHidden(false);
+        }
+      }
+
+      lastScrollY = currentScrollY;
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(updateNavVisibility);
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCanSlideTransition(true);
+      setSlideIndex((previous) => previous + 1);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (slideIndex !== BANNER_LOOP.length - 1) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setCanSlideTransition(false);
+      setSlideIndex(0);
+    }, 600);
+
+    return () => window.clearTimeout(timeout);
+  }, [slideIndex]);
+
+  useEffect(() => {
+    if (!showNotification) {
+      return;
+    }
+    const timeout = window.setTimeout(() => setShowNotification(false), 2500);
+    return () => window.clearTimeout(timeout);
+  }, [showNotification]);
+
+  useEffect(() => {
+    if (!isDropdownOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (dropdownRef.current?.contains(target)) {
+        return;
+      }
+      if (desktopToggleRef.current?.contains(target)) {
+        return;
+      }
+      if (mobileToggleRef.current?.contains(target)) {
+        return;
+      }
+      setIsDropdownOpen(false);
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isDropdownOpen]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsDropdownOpen(false);
+        setShowLogoutModal(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("overflow-hidden", showLogoutModal);
+    return () => document.body.classList.remove("overflow-hidden");
+  }, [showLogoutModal]);
+
+  const handleTabChange = (category: ProductCategory) => {
+    setActiveTab(category);
+    setVisibleCount(MAX_VISIBLE);
+  };
+
+  const handleLoadMore = () => {
+    setVisibleCount(filteredProducts.length);
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutModal(false);
+    setShowNotification(true);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="min-h-screen bg-white pb-[86px] pt-[104px] text-zinc-900 md:pb-0 md:pt-[130px]">
+      <nav
+        className={[
+          "fixed inset-x-0 top-0 z-[999] bg-[#293275] shadow-[0_8px_18px_rgba(14,16,22,0.08)] transition-transform duration-300",
+          isNavHidden ? "-translate-y-full" : "translate-y-0",
+        ].join(" ")}
+      >
+        <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between gap-4 px-4 md:h-[90px] md:px-6">
+          <Link href="/" className="inline-flex items-center">
+            <FallbackImage
+              src="/images/title_logo_topzyn.png"
+              alt="TopZyn"
+              className="h-10 w-auto md:h-12"
+            />
+          </Link>
+
+          <ul className="hidden items-center gap-2 md:flex">
+            {NAV_LINKS.map((item) => (
+              <li key={item.label}>
+                <Link
+                  href={item.href}
+                  className="inline-flex items-center rounded-full px-3 py-2 text-base font-semibold text-white transition hover:text-[#ff711c] lg:text-lg"
+                >
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {user ? (
+            <div className="relative">
+              <button
+                ref={desktopToggleRef}
+                type="button"
+                aria-expanded={isDropdownOpen}
+                onClick={() => setIsDropdownOpen((value) => !value)}
+                className="hidden items-center gap-2 rounded-full border border-white/20 px-2 py-1 text-white transition hover:bg-white/10 md:flex"
+              >
+                <FallbackImage
+                  src="/images/user_icon_topzyn.png"
+                  alt="Avatar"
+                  className="h-9 w-9 rounded-full border border-white object-cover"
+                />
+                <span className="font-poppins text-sm font-bold">{user.username}</span>
+                <ChevronDownIcon
+                  className={[
+                    "h-5 w-5 transition-transform duration-200",
+                    isDropdownOpen ? "rotate-180" : "rotate-0",
+                  ].join(" ")}
+                />
+              </button>
+
+              <div
+                ref={dropdownRef}
+                className={[
+                  "fixed bottom-[90px] right-4 z-[999] w-[260px] origin-top-right rounded-xl border border-[#293275] bg-white p-2 shadow-2xl transition duration-200 md:absolute md:bottom-auto md:right-0 md:top-[58px]",
+                  isDropdownOpen
+                    ? "visible translate-y-0 scale-100 opacity-100 pointer-events-auto"
+                    : "invisible -translate-y-2 scale-95 opacity-0 pointer-events-none",
+                ].join(" ")}
+              >
+                <div className="flex gap-3 border-b border-slate-200 p-2">
+                  <FallbackImage
+                    src="/images/user_icon_topzyn.png"
+                    alt="Avatar"
+                    className="h-11 w-11 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <strong className="block truncate text-sm text-slate-800">
+                      {user.username}
+                    </strong>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/profile"
+                  className="mt-2 flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+                >
+                  <UserIcon className="h-[18px] w-[18px]" />
+                  Profil Saya
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutModal(true)}
+                  className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                >
+                  <LogoutIcon className="h-[18px] w-[18px]" />
+                  Logout
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="hidden gap-3 md:flex">
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff711c] px-5 py-2 text-sm font-semibold text-[#ff711c] transition hover:bg-[#ff711c] hover:text-white"
+              >
+                <LoginIcon className="h-4 w-4" />
+                Masuk
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff711c] bg-[#ff711c] px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
+              >
+                <PlusUserIcon className="h-4 w-4" />
+                Daftar
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <div className="flex h-[34px] items-center overflow-hidden border-t border-white/40 bg-[#293275] md:h-10">
+          <div className="running-text-track inline-block whitespace-nowrap pl-[100%] [animation:runningText_15s_linear_infinite]">
+            <span className="inline-block px-5 text-sm font-bold text-white md:px-7 md:text-base">
+              Bingung mau top up atau joki game di mana? Tenang, di TopZyn aja!
+              Toko top up dan joki terpercaya No.1 se-Indonesia. Cepat, aman,
+              dan selalu memuaskan! TopZyn - Top Up Mudah, Main Makin Seru!
+            </span>
+          </div>
+        </div>
+      </nav>
+
+      <div
+        className={[
+          "fixed inset-x-0 bottom-0 z-[998] flex h-[76px] items-center justify-around bg-white px-2 shadow-[0_-8px_18px_rgba(14,16,22,0.08)] transition-all duration-300 md:hidden",
+          isNavHidden ? "translate-y-full opacity-0 pointer-events-none" : "",
+        ].join(" ")}
+      >
+        <Link
+          href="/"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+        >
+          <HomeIcon className="h-[22px] w-[22px]" />
+          <span>Home</span>
+        </Link>
+        <Link
+          href="#"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+        >
+          <ChartIcon className="h-[22px] w-[22px]" />
+          <span>Leaderboard</span>
+        </Link>
+        <Link
+          href="#"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+        >
+          <HistoryIcon className="h-[22px] w-[22px]" />
+          <span>Riwayat</span>
+        </Link>
+        <Link
+          href="#"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+        >
+          <CalculatorIcon className="h-[22px] w-[22px]" />
+          <span>Kalkulator</span>
+        </Link>
+        {user ? (
+          <button
+            ref={mobileToggleRef}
+            type="button"
+            aria-expanded={isDropdownOpen}
+            onClick={() => setIsDropdownOpen((value) => !value)}
+            className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+          >
+            <UserIcon className="h-[22px] w-[22px]" />
+            <span>Profile</span>
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+          >
+            <UserIcon className="h-[22px] w-[22px]" />
+            <span>Profile</span>
+          </Link>
+        )}
+      </div>
+
+      {showLogoutModal ? (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 px-4"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowLogoutModal(false);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logoutTitle"
+            className="w-full max-w-[420px] rounded-2xl bg-white px-8 py-7 text-center shadow-2xl"
+          >
+            <div className="mx-auto mb-4 flex h-[86px] w-[86px] items-center justify-center rounded-full bg-amber-100 text-amber-500">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-11 w-11">
+                <path
+                  d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 13h-1v-2h2v2h-1zm1-4h-2V7h2v4z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+            <h3 id="logoutTitle" className="text-2xl font-bold text-slate-900">
+              Yakin mau logout?
+            </h3>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 rounded-xl bg-slate-100 px-4 py-3 font-bold text-slate-800 transition hover:bg-slate-200"
+              >
+                Gajadi
+              </button>
+              <button
+                type="button"
+                onClick={handleLogoutConfirm}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-bold text-white transition hover:bg-red-700"
+              >
+                Tetap logout
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showNotification ? (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/45 px-4 [animation:fadeIn_0.25s_ease_forwards]">
+          <div className="w-full max-w-[420px] rounded-2xl bg-white px-9 py-8 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-[90px] w-[90px] items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[46px] w-[46px]">
+                <path
+                  d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-2xl font-bold text-slate-900">
+              Sukses
+            </h3>
+            <p className="text-sm text-slate-500">
+              Aksi berhasil diproses.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="mt-6 px-4 md:mt-16 md:px-0">
+        <div className="mx-auto aspect-[16/7] max-w-6xl overflow-hidden">
+          <div
+            className="flex h-full w-full"
+            style={{
+              transform: `translateX(-${slideIndex * 100}%)`,
+              transition: canSlideTransition ? "transform 0.6s ease" : "none",
+            }}
+          >
+            {BANNER_LOOP.map((banner, index) => (
+              <div key={`${banner}-${index}`} className="h-full min-w-full">
+                <FallbackImage
+                  src={banner}
+                  alt={`Banner ${index + 1}`}
+                  className="h-full w-full rounded-xl object-cover md:rounded-2xl"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-4 px-4 py-8 md:mt-14 md:py-10">
+        <div className="mx-auto mb-5 max-w-6xl">
+          <h2 className="text-2xl font-bold md:text-3xl">Populer Sekarang!</h2>
+          <p className="text-xs text-zinc-500 md:text-sm">
+            Berikut beberapa produk yang paling populer saat ini.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
+          {popularProducts.map((item) => (
+            <Link key={item.name} href={item.link} className="block no-underline">
+              <article className="group relative aspect-[16/9] overflow-hidden rounded-xl bg-white shadow-sm md:rounded-2xl">
+                <FallbackImage
+                  src={item.popularImage ?? item.image}
+                  alt={item.name}
+                  className="h-full w-full object-cover grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-[#293275] p-2.5 text-white md:p-3">
+                  <span className="block text-xs font-semibold leading-tight md:text-sm lg:text-base">
+                    {item.name}
+                  </span>
+                  <small className="text-[11px] text-white/80">{item.publisher}</small>
+                </div>
+              </article>
+            </Link>
+          ))}
         </div>
-      </main>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-2">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => handleTabChange("topup")}
+            className={[
+              "rounded-md px-3 py-2 text-[10px] transition md:text-xs",
+              activeTab === "topup"
+                ? "bg-[#293275] font-semibold text-white hover:bg-[#293275]/90"
+                : "bg-slate-500 font-medium text-white hover:bg-slate-600",
+            ].join(" ")}
+          >
+            ALL PRODUCT
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange("ml")}
+            className={[
+              "rounded-md px-3 py-2 text-[10px] transition md:text-xs",
+              activeTab === "ml"
+                ? "bg-[#293275] font-semibold text-white hover:bg-[#293275]/90"
+                : "bg-slate-500 font-medium text-white hover:bg-slate-600",
+            ].join(" ")}
+          >
+            MLBB/MCGG
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange("ff")}
+            className={[
+              "rounded-md px-3 py-2 text-[10px] transition md:text-xs",
+              activeTab === "ff"
+                ? "bg-[#293275] font-semibold text-white hover:bg-[#293275]/90"
+                : "bg-slate-500 font-medium text-white hover:bg-slate-600",
+            ].join(" ")}
+          >
+            FF
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5">
+          {displayedProducts.map((product, index) => (
+            <Link
+              key={`${product.name}-${index}`}
+              href={product.link}
+              className="group relative overflow-hidden rounded-2xl bg-black opacity-0 [animation:fadeIn_0.45s_ease_forwards]"
+              style={{ animationDelay: `${index * 0.08}s` }}
+            >
+              <FallbackImage
+                src={product.image}
+                alt={product.name}
+                className="block h-full w-full object-cover"
+              />
+              <div className="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/80 to-transparent p-3 text-white transition duration-300 group-hover:translate-y-0">
+                <span className="mb-0.5 block text-sm font-semibold leading-tight">
+                  {product.name}
+                </span>
+                <small className="text-[11px] text-white/70">{product.publisher}</small>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-center">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            className={[
+              "rounded-xl bg-[#293275] px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#293275]/90",
+              canLoadMore ? "" : "hidden",
+            ].join(" ")}
+          >
+            Tampilkan Lainnya
+          </button>
+        </div>
+      </section>
+
+      <footer className="mt-20 bg-white text-white md:mt-24">
+        <div className="w-full overflow-hidden">
+          <FallbackImage
+            src="/images/footer_banner_raypoint.png"
+            alt="Footer Visual"
+            className="h-full w-full object-cover"
+          />
+        </div>
+
+        <div className="-mt-1 bg-[#293275] px-4 pb-10 pt-14 md:pt-16">
+          <div className="mx-auto max-w-6xl text-center">
+            <p className="mx-auto mb-10 max-w-3xl text-base leading-relaxed text-white/80 md:mb-12 md:text-xl font-poppins">
+              TopZyn adalah sahabat para gamers dan platform top up game
+              terpercaya di Indonesia.
+            </p>
+
+            <div className="grid grid-cols-1 gap-8 text-center md:grid-cols-2 md:text-left lg:grid-cols-4">
+              <div>
+                <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
+                  Peta Situs
+                </h4>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Beranda
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Masuk
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Daftar
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Kalkulator
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Cek Transaksi
+                </Link>
+              </div>
+
+              <div>
+                <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
+                  Dukungan
+                </h4>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  WhatsApp
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Email
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Instagram
+                </Link>
+              </div>
+
+              <div>
+                <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
+                  Legalitas
+                </h4>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Kebijakan Privasi
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Syarat & Ketentuan
+                </Link>
+              </div>
+
+              <div>
+                <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
+                  Sosial Media
+                </h4>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  TikTok
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Instagram
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Discord
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  Email
+                </Link>
+                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                  YouTube
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
+
