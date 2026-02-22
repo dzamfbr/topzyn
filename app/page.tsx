@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  DEFAULT_PRODUCTS,
-  type ProductCategory,
-} from "@/lib/home-products";
+import { DEFAULT_PRODUCTS, type ProductCategory } from "@/lib/home-products";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -28,16 +25,22 @@ const NAV_LINKS = [
   { label: "Kalkulator", href: "#" },
 ];
 
-const MAX_VISIBLE = 10;
+const MAX_VISIBLE = 6;
 
 function FallbackImage({
   src,
   alt,
   className,
+  loading = "lazy",
+  fetchPriority = "auto",
+  decoding = "async",
 }: {
   src: string;
   alt: string;
   className?: string;
+  loading?: "eager" | "lazy";
+  fetchPriority?: "auto" | "high" | "low";
+  decoding?: "sync" | "async" | "auto";
 }) {
   const [currentSrc, setCurrentSrc] = useState(src);
 
@@ -51,6 +54,9 @@ function FallbackImage({
       src={currentSrc}
       alt={alt}
       className={className}
+      loading={loading}
+      fetchPriority={fetchPriority}
+      decoding={decoding}
       onError={() => setCurrentSrc("/next.svg")}
     />
   );
@@ -334,6 +340,8 @@ export default function Home() {
               src="/images/title_logo_topzyn.png"
               alt="TopZyn"
               className="h-10 w-auto md:h-12"
+              loading="eager"
+              fetchPriority="high"
             />
           </Link>
 
@@ -588,6 +596,8 @@ export default function Home() {
                   src={banner}
                   alt={`Banner ${index + 1}`}
                   className="h-full w-full rounded-xl object-cover md:rounded-2xl"
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "high" : "low"}
                 />
               </div>
             ))}
@@ -595,7 +605,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mt-4 px-4 py-8 md:mt-14 md:py-10">
+      <section
+        className="mt-4 px-4 py-8 md:mt-14 md:py-10"
+        style={{ contentVisibility: "auto" }}
+      >
         <div className="mx-auto mb-5 max-w-6xl">
           <h2 className="text-2xl font-bold md:text-3xl">Populer Sekarang!</h2>
           <p className="text-xs text-zinc-500 md:text-sm">
@@ -614,6 +627,7 @@ export default function Home() {
                   src={item.popularImage ?? item.image}
                   alt={item.name}
                   className="block h-auto w-full object-contain bg-[#11162e] grayscale transition duration-500 group-hover:grayscale-0"
+                  fetchPriority="low"
                 />
                 <div className="absolute inset-x-0 bottom-0 flex h-[26%] min-h-[44px] flex-col justify-center bg-[#293275]/95 p-2 text-white md:min-h-[52px] md:p-2.5">
                   <span className="block text-xs font-semibold leading-tight md:text-sm lg:text-base">
@@ -629,7 +643,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 pb-2">
+      <section
+        className="mx-auto max-w-6xl px-4 pb-2"
+        style={{ contentVisibility: "auto" }}
+      >
         <div className="mb-4 flex flex-wrap gap-2">
           <button
             type="button"
@@ -669,7 +686,7 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
           {displayedProducts.map((product, index) => (
             <Link
               key={`${product.name}-${index}`}
@@ -681,6 +698,7 @@ export default function Home() {
                   src={product.image}
                   alt={product.name}
                   className="block h-auto w-full object-contain"
+                  fetchPriority="low"
                 />
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-100" />
                 <figcaption className="card_title pointer-events-none absolute inset-0 flex items-center justify-center text-white opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-100">
@@ -712,12 +730,16 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="mt-20 bg-white text-white md:mt-24">
+      <footer
+        className="mt-20 bg-white text-white md:mt-24"
+        style={{ contentVisibility: "auto" }}
+      >
         <div className="w-full overflow-hidden">
           <FallbackImage
             src="/images/footer_banner_raypoint.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
+            fetchPriority="low"
           />
         </div>
 

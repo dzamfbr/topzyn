@@ -96,38 +96,6 @@ export const DEFAULT_PRODUCTS: Product[] = [
     category: ["topup"],
     isPopular: false,
   },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
 ];
 
 export function normalizeCategories(value: unknown): ProductCategory[] {
