@@ -2,7 +2,6 @@
 
 import {
   DEFAULT_PRODUCTS,
-  type Product,
   type ProductCategory,
 } from "@/lib/home-products";
 import Link from "next/link";
@@ -175,7 +174,7 @@ function LogoutIcon({ className }: { className?: string }) {
 
 export default function Home() {
   const user = USER;
-  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
+  const products = DEFAULT_PRODUCTS;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -206,37 +205,6 @@ export default function Home() {
 
   const displayedProducts = filteredProducts.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredProducts.length;
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadProducts() {
-      try {
-        const response = await fetch("/api/products", { cache: "no-store" });
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as { products?: Product[] };
-        if (
-          !active ||
-          !Array.isArray(payload.products) ||
-          payload.products.length === 0
-        ) {
-          return;
-        }
-
-        setProducts(payload.products);
-      } catch (error) {
-        console.error("Failed loading products from API.", error);
-      }
-    }
-
-    loadProducts();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
