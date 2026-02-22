@@ -1,19 +1,12 @@
 "use client";
 
+import {
+  DEFAULT_PRODUCTS,
+  type Product,
+  type ProductCategory,
+} from "@/lib/home-products";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-
-type ProductCategory = "topup" | "ml" | "ff";
-
-type Product = {
-  name: string;
-  publisher: string;
-  image: string;
-  popularImage?: string;
-  link: string;
-  category: ProductCategory[];
-  isPopular?: boolean;
-};
 
 type UserSession = {
   username: string;
@@ -22,127 +15,12 @@ type UserSession = {
 
 const USER: UserSession = null;
 
-const BANNERS = ["/images/banner1.jpg", "/images/banner2.jpg", "/images/banner3.jpg"];
-const BANNER_LOOP = [...BANNERS, BANNERS[0]];
-
-const PRODUCTS: Product[] = [
-  {
-    name: "Mobile Legends: Bang Bang",
-    publisher: "Moonton",
-    image: "/images/product_mobile_legends_top_up_raypoint.png",
-    popularImage: "/images/product_horizontal_mobile_legends_top_up_raypoint.png",
-    link: "/produk/mobile-legends",
-    category: ["topup", "ml"],
-    isPopular: true,
-  },
-  {
-    name: "Free Fire",
-    publisher: "Garena",
-    image: "/images/product_free_fire_top_up_raypoint.png",
-    popularImage: "/images/product_horizontal_free_fire_top_up_raypoint.png",
-    link: "/produk/free-fire",
-    category: ["topup", "ff"],
-    isPopular: true,
-  },
-  {
-    name: "Magic Chess",
-    publisher: "Moonton",
-    image: "/images/product_magic_chess_top_up_raypoint.png",
-    popularImage: "/images/1780x1000.jpg",
-    link: "/produk/magic-chess",
-    category: ["topup", "ml"],
-    isPopular: true,
-  },
-  {
-    name: "Free Fire MAX",
-    publisher: "Garena",
-    image: "/images/product_free_fire_max_top_up_raypoint.png",
-    popularImage: "/images/1780x1000.jpg",
-    link: "/produk/free-fire-max",
-    category: ["topup", "ff"],
-    isPopular: true,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
-  {
-    name: "Product",
-    publisher: "Develop",
-    image: "/images/1000x1000.jpg",
-    link: "#",
-    category: ["topup"],
-    isPopular: false,
-  },
+const BANNERS = [
+  "/images/banner1.jpg",
+  "/images/banner2.jpg",
+  "/images/banner3.jpg",
 ];
+const BANNER_LOOP = [...BANNERS, BANNERS[0]];
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -297,6 +175,7 @@ function LogoutIcon({ className }: { className?: string }) {
 
 export default function Home() {
   const user = USER;
+  const [products, setProducts] = useState<Product[]>(DEFAULT_PRODUCTS);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -316,17 +195,48 @@ export default function Home() {
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
 
   const popularProducts = useMemo(
-    () => PRODUCTS.filter((item) => item.isPopular).slice(0, 5),
-    [],
+    () => products.filter((item) => item.isPopular).slice(0, 5),
+    [products],
   );
 
   const filteredProducts = useMemo(
-    () => PRODUCTS.filter((item) => item.category.includes(activeTab)),
-    [activeTab],
+    () => products.filter((item) => item.category.includes(activeTab)),
+    [activeTab, products],
   );
 
   const displayedProducts = filteredProducts.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredProducts.length;
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProducts() {
+      try {
+        const response = await fetch("/api/products", { cache: "no-store" });
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as { products?: Product[] };
+        if (
+          !active ||
+          !Array.isArray(payload.products) ||
+          payload.products.length === 0
+        ) {
+          return;
+        }
+
+        setProducts(payload.products);
+      } catch (error) {
+        console.error("Failed loading products from API.", error);
+      }
+    }
+
+    loadProducts();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -486,7 +396,9 @@ export default function Home() {
                   alt="Avatar"
                   className="h-9 w-9 rounded-full border border-white object-cover"
                 />
-                <span className="font-poppins text-sm font-bold">{user.username}</span>
+                <span className="font-poppins text-sm font-bold">
+                  {user.username}
+                </span>
                 <ChevronDownIcon
                   className={[
                     "h-5 w-5 transition-transform duration-200",
@@ -514,7 +426,9 @@ export default function Home() {
                     <strong className="block truncate text-sm text-slate-800">
                       {user.username}
                     </strong>
-                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    <p className="truncate text-xs text-slate-500">
+                      {user.email}
+                    </p>
                   </div>
                 </div>
 
@@ -674,19 +588,19 @@ export default function Home() {
         <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/45 px-4 [animation:fadeIn_0.25s_ease_forwards]">
           <div className="w-full max-w-[420px] rounded-2xl bg-white px-9 py-8 text-center shadow-2xl">
             <div className="mx-auto mb-5 flex h-[90px] w-[90px] items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[46px] w-[46px]">
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-[46px] w-[46px]"
+              >
                 <path
                   d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
                   fill="currentColor"
                 />
               </svg>
             </div>
-            <h3 className="mb-2 text-2xl font-bold text-slate-900">
-              Sukses
-            </h3>
-            <p className="text-sm text-slate-500">
-              Aksi berhasil diproses.
-            </p>
+            <h3 className="mb-2 text-2xl font-bold text-slate-900">Sukses</h3>
+            <p className="text-sm text-slate-500">Aksi berhasil diproses.</p>
           </div>
         </div>
       ) : null}
@@ -722,18 +636,24 @@ export default function Home() {
         </div>
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
           {popularProducts.map((item) => (
-            <Link key={item.name} href={item.link} className="block no-underline">
-              <article className="group relative aspect-[16/9] overflow-hidden rounded-xl bg-white shadow-sm md:rounded-2xl">
+            <Link
+              key={item.name}
+              href={item.link}
+              className="block no-underline"
+            >
+              <article className="group relative overflow-hidden rounded-xl bg-white shadow-sm md:rounded-2xl">
                 <FallbackImage
                   src={item.popularImage ?? item.image}
                   alt={item.name}
-                  className="h-full w-full object-cover grayscale transition duration-500 group-hover:scale-105 group-hover:grayscale-0"
+                  className="block h-auto w-full object-contain bg-[#11162e] grayscale transition duration-500 group-hover:grayscale-0"
                 />
-                <div className="absolute inset-x-0 bottom-0 bg-[#293275] p-2.5 text-white md:p-3">
+                <div className="absolute inset-x-0 bottom-0 flex h-[26%] min-h-[44px] flex-col justify-center bg-[#293275]/95 p-2 text-white md:min-h-[52px] md:p-2.5">
                   <span className="block text-xs font-semibold leading-tight md:text-sm lg:text-base">
                     {item.name}
                   </span>
-                  <small className="text-[11px] text-white/80">{item.publisher}</small>
+                  <small className="text-[11px] text-white/80">
+                    {item.publisher}
+                  </small>
                 </div>
               </article>
             </Link>
@@ -781,25 +701,31 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5">
           {displayedProducts.map((product, index) => (
             <Link
               key={`${product.name}-${index}`}
               href={product.link}
-              className="group relative overflow-hidden rounded-2xl bg-black opacity-0 [animation:fadeIn_0.45s_ease_forwards]"
-              style={{ animationDelay: `${index * 0.08}s` }}
+              className="cards block [perspective:500px]"
             >
-              <FallbackImage
-                src={product.image}
-                alt={product.name}
-                className="block h-full w-full object-cover"
-              />
-              <div className="absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/80 to-transparent p-3 text-white transition duration-300 group-hover:translate-y-0">
-                <span className="mb-0.5 block text-sm font-semibold leading-tight">
-                  {product.name}
-                </span>
-                <small className="text-[11px] text-white/70">{product.publisher}</small>
-              </div>
+              <figure className="card group relative overflow-hidden rounded-md border-2 border-zinc-600 bg-[#16161d] [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out hover:[transform:translateZ(6px)_rotateX(8deg)_rotateY(8deg)]">
+                <FallbackImage
+                  src={product.image}
+                  alt={product.name}
+                  className="block h-auto w-full object-contain"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-100" />
+                <figcaption className="card_title pointer-events-none absolute inset-0 flex items-center justify-center text-white opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-100">
+                  <div className="text-center [transform:translateZ(0)] motion-safe:translate-y-8 motion-safe:transition-transform motion-safe:duration-300 group-hover:[transform:translateZ(20px)] group-hover:translate-y-0">
+                    <span className="block text-[13px] font-bold leading-tight [text-shadow:-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000,1px_1px_0_#000] md:text-sm">
+                      {product.name}
+                    </span>
+                    <small className="mt-1 block text-[11px] text-white/80">
+                      {product.publisher}
+                    </small>
+                  </div>
+                </figcaption>
+              </figure>
             </Link>
           ))}
         </div>
@@ -839,19 +765,34 @@ export default function Home() {
                 <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
                   Peta Situs
                 </h4>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Beranda
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Masuk
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Daftar
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Kalkulator
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Cek Transaksi
                 </Link>
               </div>
@@ -860,13 +801,22 @@ export default function Home() {
                 <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
                   Dukungan
                 </h4>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   WhatsApp
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Email
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Instagram
                 </Link>
               </div>
@@ -875,10 +825,16 @@ export default function Home() {
                 <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
                   Legalitas
                 </h4>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Kebijakan Privasi
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Syarat & Ketentuan
                 </Link>
               </div>
@@ -887,19 +843,34 @@ export default function Home() {
                 <h4 className="mb-3 text-xl font-bold text-[#ff711c] font-poppins">
                   Sosial Media
                 </h4>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   TikTok
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Instagram
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Discord
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   Email
                 </Link>
-                <Link href="#" className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins">
+                <Link
+                  href="#"
+                  className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
+                >
                   YouTube
                 </Link>
               </div>
@@ -910,4 +881,3 @@ export default function Home() {
     </div>
   );
 }
-
