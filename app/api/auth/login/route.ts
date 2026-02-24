@@ -103,14 +103,17 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch {
+  } catch (error) {
+    console.error("[api/auth/login] unexpected error:", error);
     return NextResponse.json(
       {
         status: "error",
-        message: "Terjadi kesalahan saat login.",
+        message:
+          process.env.NODE_ENV === "development" && error instanceof Error
+            ? `Terjadi kesalahan saat login: ${error.message}`
+            : "Terjadi kesalahan saat login.",
       },
       { status: 500 },
     );
   }
 }
-
