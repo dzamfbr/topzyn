@@ -2,14 +2,19 @@
 
 import { DEFAULT_PRODUCTS, type ProductCategory } from "@/lib/home-products";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 
 type UserSession = {
+  id: number;
   username: string;
   email: string;
+  role: string;
 } | null;
 
-const USER: UserSession = null;
+type MeResponse = {
+  status: "success" | "error";
+  user: UserSession;
+};
 
 const BANNERS = [
   "/images/banner1.jpg",
@@ -178,24 +183,98 @@ function LogoutIcon({ className }: { className?: string }) {
   );
 }
 
+function ProfileDropdownMenu({
+  user,
+  menuRef,
+  className,
+  onCloseDropdown,
+  onOpenLogoutModal,
+  compact = false,
+}: {
+  user: NonNullable<UserSession>;
+  menuRef: RefObject<HTMLDivElement | null>;
+  className: string;
+  onCloseDropdown: () => void;
+  onOpenLogoutModal: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <div ref={menuRef} className={className}>
+      <div
+        className={[
+          "flex border-b border-slate-200",
+          compact ? "gap-2.5 p-2" : "gap-3 p-2",
+        ].join(" ")}
+      >
+        <FallbackImage
+          src="/images/user_icon_topzyn.png"
+          alt="Avatar"
+          className={compact ? "h-9 w-9 rounded-full object-cover" : "h-11 w-11 rounded-full object-cover"}
+        />
+        <div className="min-w-0">
+          <strong
+            className={[
+              "block truncate text-slate-800",
+              compact ? "text-xs" : "text-sm",
+            ].join(" ")}
+          >
+            {user.username}
+          </strong>
+          <p
+            className={[
+              "truncate text-slate-500",
+              compact ? "text-[11px]" : "text-xs",
+            ].join(" ")}
+          >
+            {user.email}
+          </p>
+        </div>
+      </div>
+
+      <Link
+        href="/profile"
+        onClick={onCloseDropdown}
+        className={[
+          "mt-2 flex items-center rounded-lg font-semibold text-slate-800 transition hover:bg-slate-100",
+          compact ? "gap-1.5 px-2 py-1.5 text-xs" : "gap-2 px-2.5 py-2 text-sm",
+        ].join(" ")}
+      >
+        <UserIcon className={compact ? "h-4 w-4" : "h-[18px] w-[18px]"} />
+        Profil Saya
+      </Link>
+
+      <button
+        type="button"
+        onClick={() => {
+          onCloseDropdown();
+          onOpenLogoutModal();
+        }}
+        className={[
+          "mt-1 flex w-full items-center rounded-lg font-semibold text-red-600 transition hover:bg-red-50",
+          compact ? "gap-1.5 px-2 py-1.5 text-xs" : "gap-2 px-2.5 py-2 text-sm",
+        ].join(" ")}
+      >
+        <LogoutIcon className={compact ? "h-4 w-4" : "h-[18px] w-[18px]"} />
+        Logout
+      </button>
+    </div>
+  );
+}
+
 export default function Home() {
-  const user = USER;
+  const [user, setUser] = useState<UserSession>(null);
   const products = DEFAULT_PRODUCTS;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [showNotification, setShowNotification] = useState<boolean>(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return new URLSearchParams(window.location.search).get("logout") === "1";
-  });
+  const [showNotification, setShowNotification] = useState(false);
   const [activeTab, setActiveTab] = useState<ProductCategory>("topup");
   const [visibleCount, setVisibleCount] = useState(MAX_VISIBLE);
   const [slideIndex, setSlideIndex] = useState(0);
   const [canSlideTransition, setCanSlideTransition] = useState(true);
 
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const desktopDropdownRef = useRef<HTMLDivElement | null>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement | null>(null);
   const desktopToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
 
@@ -211,6 +290,55 @@ export default function Home() {
 
   const displayedProducts = filteredProducts.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredProducts.length;
+
+  useEffect(() => {
+    let disposed = false;
+
+    const loadMe = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const data = (await response.json()) as MeResponse;
+        if (disposed) {
+          return;
+        }
+
+        if (!response.ok || data.status !== "success") {
+          setUser(null);
+          return;
+        }
+
+        setUser(data.user ?? null);
+      } catch {
+        if (!disposed) {
+          setUser(null);
+        }
+      }
+    };
+
+    void loadMe();
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      const hasLogoutQuery =
+        new URLSearchParams(window.location.search).get("logout") === "1";
+      if (hasLogoutQuery) {
+        setShowNotification(true);
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -280,7 +408,10 @@ export default function Home() {
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (dropdownRef.current?.contains(target)) {
+      if (desktopDropdownRef.current?.contains(target)) {
+        return;
+      }
+      if (mobileDropdownRef.current?.contains(target)) {
         return;
       }
       if (desktopToggleRef.current?.contains(target)) {
@@ -321,9 +452,20 @@ export default function Home() {
     setVisibleCount(filteredProducts.length);
   };
 
-  const handleLogoutConfirm = () => {
+  const handleLogoutConfirm = async () => {
     setShowLogoutModal(false);
-    setShowNotification(true);
+    setIsDropdownOpen(false);
+    setUser(null);
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch {
+      // Tetap lanjut redirect supaya state user lokal ter-reset.
+    }
+
+    window.location.href = "/?logout=1";
   };
 
   return (
@@ -383,48 +525,18 @@ export default function Home() {
                 />
               </button>
 
-              <div
-                ref={dropdownRef}
+              <ProfileDropdownMenu
+                user={user}
+                menuRef={desktopDropdownRef}
+                onCloseDropdown={() => setIsDropdownOpen(false)}
+                onOpenLogoutModal={() => setShowLogoutModal(true)}
                 className={[
-                  "fixed bottom-[90px] right-4 z-[999] w-[260px] origin-top-right rounded-xl border border-[#293275] bg-white p-2 shadow-2xl transition duration-200 md:absolute md:bottom-auto md:right-0 md:top-[58px]",
+                  "absolute right-0 top-[58px] z-[1000] hidden w-[260px] origin-top-right rounded-xl border border-[#293275] bg-white p-2 shadow-2xl transition duration-200 md:block",
                   isDropdownOpen
                     ? "visible translate-y-0 scale-100 opacity-100 pointer-events-auto"
                     : "invisible -translate-y-2 scale-95 opacity-0 pointer-events-none",
                 ].join(" ")}
-              >
-                <div className="flex gap-3 border-b border-slate-200 p-2">
-                  <FallbackImage
-                    src="/images/user_icon_topzyn.png"
-                    alt="Avatar"
-                    className="h-11 w-11 rounded-full object-cover"
-                  />
-                  <div className="min-w-0">
-                    <strong className="block truncate text-sm text-slate-800">
-                      {user.username}
-                    </strong>
-                    <p className="truncate text-xs text-slate-500">
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-
-                <Link
-                  href="/profile"
-                  className="mt-2 flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
-                >
-                  <UserIcon className="h-[18px] w-[18px]" />
-                  Profil Saya
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={() => setShowLogoutModal(true)}
-                  className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                >
-                  <LogoutIcon className="h-[18px] w-[18px]" />
-                  Logout
-                </button>
-              </div>
+              />
             </div>
           ) : (
             <div className="hidden gap-3 md:flex">
@@ -512,6 +624,22 @@ export default function Home() {
           </Link>
         )}
       </div>
+
+      {user ? (
+        <ProfileDropdownMenu
+          user={user}
+          menuRef={mobileDropdownRef}
+          onCloseDropdown={() => setIsDropdownOpen(false)}
+          onOpenLogoutModal={() => setShowLogoutModal(true)}
+          compact
+          className={[
+            "fixed bottom-[92px] right-4 z-[1000] w-[220px] origin-bottom-right rounded-xl border border-[#293275] bg-white p-1.5 shadow-2xl transition duration-200 md:hidden",
+            isDropdownOpen
+              ? "visible translate-y-0 scale-100 opacity-100 pointer-events-auto"
+              : "invisible translate-y-2 scale-95 opacity-0 pointer-events-none",
+          ].join(" ")}
+        />
+      ) : null}
 
       {showLogoutModal ? (
         <div
@@ -686,7 +814,7 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 md:grid-cols-6 md:gap-4">
+        <div className="grid grid-cols-4 gap-3 md:grid-cols-7 md:gap-4">
           {displayedProducts.map((product, index) => (
             <Link
               key={`${product.name}-${index}`}
