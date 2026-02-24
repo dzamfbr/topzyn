@@ -11,7 +11,6 @@ type NotificationPayload = {
   title: string;
   message: string;
   redirect: string;
-  delay: number;
 };
 
 type RegisterStartResponse = {
@@ -32,14 +31,12 @@ function parseNotification(searchParams: URLSearchParams): NotificationPayload |
 
   const normalizedType: NotificationType = type === "success" ? "success" : "error";
   const redirect = searchParams.get("redirect") ?? "";
-  const delay = Number.parseInt(searchParams.get("delay") ?? "0", 10);
 
   return {
     type: normalizedType,
     title,
     message,
     redirect,
-    delay: Number.isFinite(delay) ? delay : 0,
   };
 }
 
@@ -75,37 +72,10 @@ export default function RegisterPage() {
       return;
     }
 
-    const hideDelay = notification.delay > 0 ? notification.delay : 2500;
-    let hideTimer: number | undefined;
-    let closeTimer: number | undefined;
-    let redirectTimer: number | undefined;
-
-    if (notification.redirect && notification.delay > 0) {
-      hideTimer = window.setTimeout(() => {
-        setIsNotificationClosing(true);
-      }, Math.max(0, notification.delay - 350));
-
-      redirectTimer = window.setTimeout(() => {
-        window.location.href = notification.redirect;
-      }, notification.delay);
-    } else {
-      hideTimer = window.setTimeout(() => {
-        setIsNotificationClosing(true);
-        closeTimer = window.setTimeout(() => setShowNotification(false), 320);
-      }, hideDelay);
+    if (notification.redirect) {
+      window.location.href = notification.redirect;
+      return;
     }
-
-    return () => {
-      if (hideTimer) {
-        window.clearTimeout(hideTimer);
-      }
-      if (closeTimer) {
-        window.clearTimeout(closeTimer);
-      }
-      if (redirectTimer) {
-        window.clearTimeout(redirectTimer);
-      }
-    };
   }, [notification, showNotification]);
 
   const showErrorNotification = (message: string) => {
@@ -114,7 +84,6 @@ export default function RegisterPage() {
       title: "Registrasi Gagal",
       message,
       redirect: "",
-      delay: 2600,
     });
     setIsNotificationClosing(false);
     setShowNotification(true);
@@ -265,25 +234,32 @@ export default function RegisterPage() {
               ? "opacity-0 transition-opacity duration-300"
               : "[animation:fadeIn_0.25s_ease_forwards]",
           ].join(" ")}
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsNotificationClosing(true);
+              window.setTimeout(() => setShowNotification(false), 180);
+            }
+          }}
         >
-          <div className="w-full max-w-[420px] rounded-[22px] bg-white px-9 py-8 text-center shadow-[0_25px_60px_rgba(0,0,0,0.25)]">
+          <div className="w-full max-w-[320px] rounded-[18px] bg-white px-5 py-5 text-center shadow-[0_20px_45px_rgba(0,0,0,0.22)] sm:max-w-[420px] sm:rounded-[22px] sm:px-9 sm:py-8">
             <div
               className={[
-                "mx-auto mb-[18px] flex h-[90px] w-[90px] items-center justify-center rounded-full",
+                "mx-auto mb-3 flex h-[70px] w-[70px] items-center justify-center rounded-full sm:mb-[18px] sm:h-[90px] sm:w-[90px]",
                 notification.type === "success"
                   ? "bg-emerald-50 text-emerald-600"
                   : "bg-red-50 text-red-600",
               ].join(" ")}
             >
               {notification.type === "success" ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[46px] w-[46px]">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-9 w-9 sm:h-[46px] sm:w-[46px]">
                   <path
                     d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
                     fill="currentColor"
                   />
                 </svg>
               ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-[46px] w-[46px]">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-9 w-9 sm:h-[46px] sm:w-[46px]">
                   <path d="M11 7h2v6h-2zm0 8h2v2h-2z" fill="currentColor" />
                   <path
                     d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"
@@ -292,8 +268,20 @@ export default function RegisterPage() {
                 </svg>
               )}
             </div>
-            <h3 className="mb-2 text-[22px] font-bold text-slate-900">{notification.title}</h3>
-            <p className="text-[15px] text-slate-500">{notification.message}</p>
+            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-[22px]">{notification.title}</h3>
+            <p className="text-sm text-slate-500 sm:text-[15px]">{notification.message}</p>
+            {!notification.redirect ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNotificationClosing(true);
+                  window.setTimeout(() => setShowNotification(false), 180);
+                }}
+                className="mt-4 rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 sm:text-sm"
+              >
+                Tutup
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

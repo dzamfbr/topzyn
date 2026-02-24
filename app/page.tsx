@@ -263,6 +263,7 @@ function ProfileDropdownMenu({
 
 export default function Home() {
   const [user, setUser] = useState<UserSession>(null);
+  const [isAuthResolved, setIsAuthResolved] = useState(false);
   const products = DEFAULT_PRODUCTS;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
@@ -316,6 +317,10 @@ export default function Home() {
         if (!disposed) {
           setUser(null);
         }
+      } finally {
+        if (!disposed) {
+          setIsAuthResolved(true);
+        }
       }
     };
 
@@ -328,10 +333,17 @@ export default function Home() {
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
-      const hasLogoutQuery =
-        new URLSearchParams(window.location.search).get("logout") === "1";
+      const searchParams = new URLSearchParams(window.location.search);
+      const hasLogoutQuery = searchParams.get("logout") === "1";
       if (hasLogoutQuery) {
         setShowNotification(true);
+        searchParams.delete("logout");
+
+        const nextSearch = searchParams.toString();
+        const nextUrl = `${window.location.pathname}${
+          nextSearch ? `?${nextSearch}` : ""
+        }${window.location.hash}`;
+        window.history.replaceState(window.history.state, "", nextUrl);
       }
     });
 
@@ -392,14 +404,6 @@ export default function Home() {
 
     return () => window.clearTimeout(timeout);
   }, [slideIndex]);
-
-  useEffect(() => {
-    if (!showNotification) {
-      return;
-    }
-    const timeout = window.setTimeout(() => setShowNotification(false), 2500);
-    return () => window.clearTimeout(timeout);
-  }, [showNotification]);
 
   useEffect(() => {
     if (!isDropdownOpen) {
@@ -500,60 +504,66 @@ export default function Home() {
             ))}
           </ul>
 
-          {user ? (
-            <div className="relative">
-              <button
-                ref={desktopToggleRef}
-                type="button"
-                aria-expanded={isDropdownOpen}
-                onClick={() => setIsDropdownOpen((value) => !value)}
-                className="hidden items-center gap-2 rounded-full border border-white/20 px-2 py-1 text-white transition hover:bg-white/10 md:flex"
-              >
-                <FallbackImage
-                  src="/images/user_icon_topzyn.png"
-                  alt="Avatar"
-                  className="h-9 w-9 rounded-full border border-white object-cover"
-                />
-                <span className="font-poppins text-sm font-bold">
-                  {user.username}
-                </span>
-                <ChevronDownIcon
+          {isAuthResolved ? (
+            user ? (
+              <div className="relative">
+                <button
+                  ref={desktopToggleRef}
+                  type="button"
+                  aria-expanded={isDropdownOpen}
+                  onClick={() => setIsDropdownOpen((value) => !value)}
+                  className="hidden items-center gap-2 rounded-full border border-white/20 px-2 py-1 text-white transition hover:bg-white/10 md:flex"
+                >
+                  <FallbackImage
+                    src="/images/user_icon_topzyn.png"
+                    alt="Avatar"
+                    className="h-9 w-9 rounded-full border border-white object-cover"
+                  />
+                  <span className="font-poppins text-sm font-bold">
+                    {user.username}
+                  </span>
+                  <ChevronDownIcon
+                    className={[
+                      "h-5 w-5 transition-transform duration-200",
+                      isDropdownOpen ? "rotate-180" : "rotate-0",
+                    ].join(" ")}
+                  />
+                </button>
+
+                <ProfileDropdownMenu
+                  user={user}
+                  menuRef={desktopDropdownRef}
+                  onCloseDropdown={() => setIsDropdownOpen(false)}
+                  onOpenLogoutModal={() => setShowLogoutModal(true)}
                   className={[
-                    "h-5 w-5 transition-transform duration-200",
-                    isDropdownOpen ? "rotate-180" : "rotate-0",
+                    "absolute right-0 top-[58px] z-[1000] hidden w-[260px] origin-top-right rounded-xl border border-[#293275] bg-white p-2 shadow-2xl transition duration-200 md:block",
+                    isDropdownOpen
+                      ? "visible translate-y-0 scale-100 opacity-100 pointer-events-auto"
+                      : "invisible -translate-y-2 scale-95 opacity-0 pointer-events-none",
                   ].join(" ")}
                 />
-              </button>
-
-              <ProfileDropdownMenu
-                user={user}
-                menuRef={desktopDropdownRef}
-                onCloseDropdown={() => setIsDropdownOpen(false)}
-                onOpenLogoutModal={() => setShowLogoutModal(true)}
-                className={[
-                  "absolute right-0 top-[58px] z-[1000] hidden w-[260px] origin-top-right rounded-xl border border-[#293275] bg-white p-2 shadow-2xl transition duration-200 md:block",
-                  isDropdownOpen
-                    ? "visible translate-y-0 scale-100 opacity-100 pointer-events-auto"
-                    : "invisible -translate-y-2 scale-95 opacity-0 pointer-events-none",
-                ].join(" ")}
-              />
-            </div>
+              </div>
+            ) : (
+              <div className="hidden gap-3 md:flex">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff711c] px-5 py-2 text-sm font-semibold text-[#ff711c] transition hover:bg-[#ff711c] hover:text-white"
+                >
+                  <LoginIcon className="h-4 w-4" />
+                  Masuk
+                </Link>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff711c] bg-[#ff711c] px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
+                >
+                  <PlusUserIcon className="h-4 w-4" />
+                  Daftar
+                </Link>
+              </div>
+            )
           ) : (
-            <div className="hidden gap-3 md:flex">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff711c] px-5 py-2 text-sm font-semibold text-[#ff711c] transition hover:bg-[#ff711c] hover:text-white"
-              >
-                <LoginIcon className="h-4 w-4" />
-                Masuk
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center gap-2 rounded-full border-2 border-[#ff711c] bg-[#ff711c] px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
-              >
-                <PlusUserIcon className="h-4 w-4" />
-                Daftar
-              </Link>
+            <div className="hidden md:flex">
+              <div className="h-10 w-[170px] animate-pulse rounded-full bg-white/20" />
             </div>
           )}
         </div>
@@ -603,25 +613,32 @@ export default function Home() {
           <CalculatorIcon className="h-[22px] w-[22px]" />
           <span>Kalkulator</span>
         </Link>
-        {user ? (
-          <button
-            ref={mobileToggleRef}
-            type="button"
-            aria-expanded={isDropdownOpen}
-            onClick={() => setIsDropdownOpen((value) => !value)}
-            className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
-          >
-            <UserIcon className="h-[22px] w-[22px]" />
-            <span>Profile</span>
-          </button>
+        {isAuthResolved ? (
+          user ? (
+            <button
+              ref={mobileToggleRef}
+              type="button"
+              aria-expanded={isDropdownOpen}
+              onClick={() => setIsDropdownOpen((value) => !value)}
+              className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+            >
+              <UserIcon className="h-[22px] w-[22px]" />
+              <span>Profile</span>
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+            >
+              <UserIcon className="h-[22px] w-[22px]" />
+              <span>Profile</span>
+            </Link>
+          )
         ) : (
-          <Link
-            href="/login"
-            className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
-          >
+          <div className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-400">
             <UserIcon className="h-[22px] w-[22px]" />
             <span>Profile</span>
-          </Link>
+          </div>
         )}
       </div>
 
@@ -689,13 +706,21 @@ export default function Home() {
       ) : null}
 
       {showNotification ? (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/45 px-4 [animation:fadeIn_0.25s_ease_forwards]">
-          <div className="w-full max-w-[420px] rounded-2xl bg-white px-9 py-8 text-center shadow-2xl">
-            <div className="mx-auto mb-5 flex h-[90px] w-[90px] items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+        <div
+          className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/45 px-4 [animation:fadeIn_0.25s_ease_forwards]"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowNotification(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-[320px] rounded-[18px] bg-white px-5 py-5 text-center shadow-[0_20px_45px_rgba(0,0,0,0.22)] sm:max-w-[420px] sm:rounded-2xl sm:px-9 sm:py-8">
+            <div className="mx-auto mb-3 flex h-[70px] w-[70px] items-center justify-center rounded-full bg-emerald-50 text-emerald-600 sm:mb-5 sm:h-[90px] sm:w-[90px]">
               <svg
                 viewBox="0 0 24 24"
                 aria-hidden="true"
-                className="h-[46px] w-[46px]"
+                className="h-9 w-9 sm:h-[46px] sm:w-[46px]"
               >
                 <path
                   d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
@@ -703,8 +728,15 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h3 className="mb-2 text-2xl font-bold text-slate-900">Sukses</h3>
+            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-2xl">Sukses</h3>
             <p className="text-sm text-slate-500">Aksi berhasil diproses.</p>
+            <button
+              type="button"
+              onClick={() => setShowNotification(false)}
+              className="mt-4 rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 sm:text-sm"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       ) : null}
