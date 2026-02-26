@@ -58,7 +58,7 @@ const WDP_NOTICE_KEY = "topzyn_hide_wdp_notice";
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "#" },
-  { label: "Riwayat", href: "#" },
+  { label: "Riwayat", href: "/riwayat" },
   { label: "Kalkulator", href: "#" },
 ];
 
@@ -473,7 +473,10 @@ export default function MobileLegendsProductPage() {
     }
   };
 
-  const showTopNotice = (message: string, tone: "error" | "success" = "error") => {
+  const showTopNotice = (
+    message: string,
+    tone: "error" | "success" = "error",
+  ) => {
     clearTopNoticeTimers();
     setTopNotice({
       id: Date.now(),
@@ -583,7 +586,9 @@ export default function MobileLegendsProductPage() {
         throw new Error(data.message ?? "Order gagal diproses.");
       }
       setShowOrderModal(false);
-      window.location.href = data.invoice_url ?? `/invoice/${encodeURIComponent(data.order_number ?? "")}`;
+      window.location.href =
+        data.invoice_url ??
+        `/invoice/${encodeURIComponent(data.order_number ?? "")}`;
     } catch (error) {
       setShowOrderModal(false);
       showTopNotice(
@@ -617,6 +622,9 @@ export default function MobileLegendsProductPage() {
     }
   };
 
+  const sectionCardClass =
+    "rounded-2xl border border-white/80 bg-white/90 p-4 shadow-[0_16px_36px_rgba(16,24,40,0.1)] backdrop-blur-[2px] sm:p-5";
+
   const renderNominalCard = (item: MlbbItem) => (
     <button
       key={item.id}
@@ -626,18 +634,24 @@ export default function MobileLegendsProductPage() {
         resetPromo();
       }}
       className={[
-        "flex items-start gap-2 rounded-xl border p-2 text-left transition sm:gap-3 sm:rounded-2xl sm:p-3",
+        "group relative overflow-hidden rounded-xl border p-2 text-left transition-all duration-300 sm:gap-3 sm:rounded-2xl sm:p-3",
         selectedItemId === item.id
-          ? "border-[#293275] ring-2 ring-[#293275]/20"
-          : "border-slate-200 hover:border-[#293275]/40",
+          ? "border-[#293275] bg-[#eef1ff] shadow-[0_10px_24px_rgba(41,50,117,0.2)] ring-2 ring-[#293275]/20"
+          : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-[#293275]/40 hover:shadow-[0_10px_24px_rgba(16,24,40,0.12)]",
       ].join(" ")}
     >
+      <span className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[#293275]/10 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
+      <FallbackImage
+        src="/images/pojok_kanan_atas.png"
+        alt=""
+        className="pointer-events-none absolute right-0 top-0 z-20 h-7 w-7 object-contain sm:h-8 sm:w-8"
+      />
       <FallbackImage
         src={item.image_url}
         alt={item.name}
-        className="h-8 w-8 rounded-md object-cover sm:h-11 sm:w-11 sm:rounded-lg"
+        className="relative h-8 w-8 rounded-md object-cover shadow-sm sm:h-11 sm:w-11 sm:rounded-lg"
       />
-      <div className="min-w-0">
+      <div className="relative min-w-0">
         <p className="text-[11px] font-bold leading-tight sm:text-sm">
           {item.name}
         </p>
@@ -646,7 +660,7 @@ export default function MobileLegendsProductPage() {
             {formatRupiah(item.final_price)}
           </p>
           {item.discount_percent > 0 ? (
-            <span className="inline-flex items-center rounded-full bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white sm:px-2 sm:text-[11px]">
+            <span className="inline-flex items-center rounded-full bg-gradient-to-r from-red-600 to-red-500 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow-sm sm:px-2 sm:text-[11px]">
               -{item.discount_percent}%
             </span>
           ) : null}
@@ -659,7 +673,9 @@ export default function MobileLegendsProductPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-[86px] pt-[104px] text-[#101828] md:pb-0 md:pt-[130px]">
+    <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top_left,_#dbe6ff_0%,_#eef3ff_26%,_#f8fafc_55%,_#f8fafc_100%)] pb-[86px] pt-[104px] text-[#101828] md:pb-0 md:pt-[130px]">
+      <div className="pointer-events-none absolute -left-16 top-28 h-64 w-64 rounded-full bg-[#293275]/12 blur-3xl" />
+      <div className="pointer-events-none absolute -right-12 top-[380px] h-72 w-72 rounded-full bg-[#ff711c]/10 blur-3xl" />
       <nav
         className={[
           "fixed inset-x-0 top-0 z-[999] bg-[#293275] shadow-[0_8px_18px_rgba(14,16,22,0.08)] transition-transform duration-300",
@@ -680,8 +696,17 @@ export default function MobileLegendsProductPage() {
               <li key={item.label}>
                 <Link
                   href={item.href}
-                  className="inline-flex items-center rounded-full px-3 py-2 text-base font-semibold text-white transition hover:text-[#ff711c] lg:text-lg"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-base font-semibold text-white transition hover:text-[#ff711c] lg:text-lg"
                 >
+                  {item.label === "Home" ? (
+                    <HomeIcon className="h-4 w-4" />
+                  ) : item.label === "Leaderboard" ? (
+                    <ChartIcon className="h-4 w-4" />
+                  ) : item.label === "Riwayat" ? (
+                    <HistoryIcon className="h-4 w-4" />
+                  ) : (
+                    <CalculatorIcon className="h-4 w-4" />
+                  )}
                   {item.label}
                 </Link>
               </li>
@@ -787,7 +812,9 @@ export default function MobileLegendsProductPage() {
             key={topNotice.id}
             className={[
               "pointer-events-auto w-full max-w-md rounded-xl border px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(16,24,40,0.2)] transition-all duration-300",
-              isTopNoticeShown ? "translate-y-0 opacity-100" : "-translate-y-5 opacity-0",
+              isTopNoticeShown
+                ? "translate-y-0 opacity-100"
+                : "-translate-y-5 opacity-0",
               topNotice.tone === "error"
                 ? "border-red-200 bg-red-50 text-red-700"
                 : "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -798,24 +825,26 @@ export default function MobileLegendsProductPage() {
         </div>
       ) : null}
 
-      <main className="px-3 sm:px-4">
-        <section className="mx-auto mt-5 max-w-6xl sm:mt-6">
-          <article className="relative overflow-hidden rounded-xl bg-[url('/images/bg_blue.jpg')] bg-cover bg-center p-4 text-white sm:rounded-2xl sm:p-5 md:p-6">
-            <div className="absolute inset-0 bg-black/45" />
+      <main className="relative px-3 sm:px-4">
+        <section className="mx-auto mt-6 max-w-6xl sm:mt-7">
+          <article className="relative overflow-hidden rounded-2xl border border-white/40 bg-[url('/images/bg_blue.jpg')] bg-cover bg-center p-4 text-white shadow-[0_24px_50px_rgba(41,50,117,0.32)] sm:p-6 md:p-7">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0d1030]/75 to-[#293275]/70" />
+            <div className="absolute -left-10 top-5 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ff711c]/25 blur-2xl" />
             <div className="relative grid items-center gap-3 sm:gap-4 md:grid-cols-[auto,1fr]">
               <FallbackImage
                 src="/images/mobile_legend_logo.png"
                 alt="Mobile Legends"
-                className="mx-auto h-[88px] w-[88px] rounded-xl object-cover sm:h-[104px] sm:w-[104px] sm:rounded-2xl md:mx-0 md:h-[120px] md:w-[120px]"
+                className="mx-auto h-[88px] w-[88px] rounded-xl border border-white/50 object-cover shadow-[0_10px_26px_rgba(0,0,0,0.35)] sm:h-[108px] sm:w-[108px] sm:rounded-2xl md:mx-0 md:h-[124px] md:w-[124px]"
               />
               <div className="text-center md:text-left">
-                <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">
+                <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl md:text-3xl">
                   Mobile Legends: Bang Bang
                 </h1>
                 <p className="text-xs text-white/90 sm:text-sm md:text-base">
                   Moonton
                 </p>
-                <span className="mt-2.5 inline-flex rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-bold sm:mt-3 sm:px-3 sm:text-xs">
+                <span className="mt-2.5 inline-flex items-center rounded-full border border-white/30 bg-white/20 px-2.5 py-1 text-[11px] font-bold backdrop-blur-sm sm:mt-3 sm:px-3 sm:text-xs">
                   24/7 Online
                 </span>
               </div>
@@ -825,8 +854,13 @@ export default function MobileLegendsProductPage() {
 
         <section className="mx-auto mt-5 grid max-w-6xl gap-4 pb-8 sm:mt-6 sm:gap-6 sm:pb-10 lg:grid-cols-[minmax(260px,340px)_1fr] lg:items-start">
           <aside className="h-fit px-1 lg:sticky lg:top-[146px]">
-            <h3 className="text-base font-bold sm:text-lg">Petunjuk Topup</h3>
-            <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs leading-relaxed text-slate-600 sm:text-sm">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#ff711c]" />
+              <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
+                Petunjuk Topup
+              </h3>
+            </div>
+            <ol className="mt-3 list-decimal space-y-2.5 pl-5 text-xs leading-relaxed text-slate-600 sm:text-sm">
               <li>Masukkan User ID dan Server dengan benar.</li>
               <li>Pilih nominal diamonds yang kamu butuhkan.</li>
               <li>Pilih metode pembayaran QRIS.</li>
@@ -836,8 +870,8 @@ export default function MobileLegendsProductPage() {
           </aside>
 
           <div className="space-y-5">
-            <section className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(16,24,40,0.08)] sm:p-5">
-              <h3 className="text-base font-bold sm:text-lg">
+            <section className={sectionCardClass}>
+              <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
                 1. Masukkan ID Game
               </h3>
               <p className="text-xs text-slate-500 sm:text-sm">
@@ -864,8 +898,8 @@ export default function MobileLegendsProductPage() {
               </p>
             </section>
 
-            <section className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(16,24,40,0.08)] sm:p-5">
-              <h3 className="text-base font-bold sm:text-lg">
+            <section className={sectionCardClass}>
+              <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
                 2. Pilih Nominal
               </h3>
               <p className="text-xs text-slate-500 sm:text-sm">
@@ -923,9 +957,9 @@ export default function MobileLegendsProductPage() {
 
             <section
               ref={paymentSectionRef}
-              className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(16,24,40,0.08)] sm:p-5"
+              className={sectionCardClass}
             >
-              <h3 className="text-base font-bold sm:text-lg">
+              <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
                 3. Metode Pembayaran
               </h3>
               <p className="text-xs text-slate-500 sm:text-sm">
@@ -938,26 +972,29 @@ export default function MobileLegendsProductPage() {
                     type="button"
                     onClick={() => setSelectedPaymentId(method.id)}
                     className={[
-                      "flex items-center gap-2 rounded-lg border p-2 text-left transition sm:gap-3 sm:rounded-xl sm:p-3",
+                      "group relative overflow-hidden flex items-center gap-2 rounded-lg border p-2 text-left transition-all duration-300 sm:gap-3 sm:rounded-xl sm:p-3",
                       selectedPaymentId === method.id
-                        ? "border-[#293275] ring-2 ring-[#293275]/20"
-                        : "border-slate-200 hover:border-[#293275]/40",
+                        ? "border-[#293275] bg-[#eef1ff] ring-2 ring-[#293275]/20 shadow-[0_10px_24px_rgba(41,50,117,0.18)]"
+                        : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-[#293275]/40 hover:shadow-[0_10px_24px_rgba(16,24,40,0.12)]",
                     ].join(" ")}
                   >
+                    <span className="pointer-events-none absolute -right-8 -top-8 h-16 w-16 rounded-full bg-[#293275]/10 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
                     <FallbackImage
                       src={method.logo_url}
                       alt={method.name}
-                      className="h-6 w-6 object-contain sm:h-8 sm:w-8"
+                      className="relative h-6 w-6 object-contain sm:h-8 sm:w-8"
                     />
-                    <span className="text-[11px] font-bold sm:text-sm">
+                    <span className="relative text-[11px] font-bold sm:text-sm">
                       {method.name}
                     </span>
                   </button>
                 ))}
               </div>
             </section>
-            <section className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(16,24,40,0.08)] sm:p-5">
-              <h3 className="text-base font-bold sm:text-lg">4. Kode Promo</h3>
+            <section className={sectionCardClass}>
+              <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
+                4. Kode Promo
+              </h3>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
@@ -969,7 +1006,7 @@ export default function MobileLegendsProductPage() {
                 <button
                   type="button"
                   onClick={handleApplyPromo}
-                  className="rounded-xl bg-[#293275] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1f265f] sm:py-3"
+                  className="rounded-xl bg-gradient-to-r from-[#293275] to-[#1f265f] px-4 py-2.5 text-sm font-bold text-white shadow-[0_10px_20px_rgba(41,50,117,0.28)] transition hover:brightness-110 sm:py-3"
                 >
                   Gunakan
                 </button>
@@ -990,8 +1027,10 @@ export default function MobileLegendsProductPage() {
               ) : null}
             </section>
 
-            <section className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(16,24,40,0.08)] sm:p-5">
-              <h3 className="text-base font-bold sm:text-lg">5. Kontak</h3>
+            <section className={sectionCardClass}>
+              <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
+                5. Kontak
+              </h3>
               <input
                 type="tel"
                 placeholder="08xxxxxxxxxx"
@@ -1001,7 +1040,7 @@ export default function MobileLegendsProductPage() {
               />
             </section>
 
-            <section className="rounded-2xl bg-[#fff7f0] p-3.5 shadow-[0_12px_30px_rgba(16,24,40,0.08)] sm:p-4">
+            <section className="rounded-2xl border border-[#ff711c]/20 bg-gradient-to-br from-[#fff7f0] to-[#fff2e8] p-3.5 shadow-[0_16px_36px_rgba(16,24,40,0.1)] sm:p-4">
               <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between">
                   <span>Item</span>
@@ -1029,7 +1068,7 @@ export default function MobileLegendsProductPage() {
                   setShowOrderModal(true);
                 }
               }}
-              className="w-full rounded-xl bg-[#293275] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1f265f] sm:py-3 sm:text-base"
+              className="w-full rounded-xl bg-gradient-to-r from-[#293275] to-[#1f265f] px-4 py-2.5 text-sm font-bold text-white shadow-[0_14px_28px_rgba(41,50,117,0.3)] transition hover:brightness-110 sm:py-3 sm:text-base"
             >
               Order Sekarang
             </button>
@@ -1058,7 +1097,7 @@ export default function MobileLegendsProductPage() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="#"
+          href="/riwayat"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />

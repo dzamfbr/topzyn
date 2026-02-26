@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { AUTH_COOKIE_NAME, parseAuthSessionToken } from "@/lib/auth-session";
 import {
+  ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
+  ACTIVE_ORDER_COOKIE_NAME,
+} from "@/lib/order-lock";
+import {
   generateMlbbOrderNumber,
   hasPendingMlbbOrder,
   savePendingMlbbOrder,
@@ -143,7 +147,7 @@ async function generateUniqueOrderNumber(
 ): Promise<string> {
   const db = getDbPool();
 
-  for (let i = 0; i < 40; i += 1) {
+  for (let i = 0; i < 200; i += 1) {
     const candidate = generateMlbbOrderNumber(itemName, itemCode);
     if (hasPendingMlbbOrder(candidate)) {
       continue;
@@ -159,9 +163,7 @@ async function generateUniqueOrderNumber(
     }
   }
 
-  // fallback ekstra aman jika random 4 karakter bentrok terus
-  const fallback = `${generateMlbbOrderNumber(itemName, itemCode)}${Date.now().toString().slice(-2)}`;
-  return fallback;
+  throw new Error("Gagal membuat kode order unik. Silakan coba lagi.");
 }
 
 export async function POST(request: NextRequest) {
@@ -342,12 +344,22 @@ export async function POST(request: NextRequest) {
     };
     savePendingMlbbOrder(pendingOrder);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       status: "ok",
       message: "Order berhasil dibuat. Lanjutkan pembayaran lewat halaman invoice.",
       order_number: orderNumber,
       invoice_url: `/invoice/${encodeURIComponent(orderNumber)}`,
     });
+    response.cookies.set({
+      name: ACTIVE_ORDER_COOKIE_NAME,
+      value: orderNumber,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
+    });
+    return response;
   } catch (error) {
     console.error("[api/mlbb/order] unexpected error:", error);
     return NextResponse.json(

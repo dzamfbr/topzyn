@@ -2,7 +2,13 @@
 
 import { DEFAULT_PRODUCTS, type ProductCategory } from "@/lib/home-products";
 import Link from "next/link";
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 type UserSession = {
   id: number;
@@ -26,7 +32,7 @@ const BANNER_LOOP = [...BANNERS, BANNERS[0]];
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "#" },
-  { label: "Riwayat", href: "#" },
+  { label: "Riwayat", href: "/riwayat" },
   { label: "Kalkulator", href: "#" },
 ];
 
@@ -551,8 +557,22 @@ export default function Home() {
               <li key={item.label}>
                 <Link
                   href={item.href}
-                  className="inline-flex items-center rounded-full px-3 py-2 text-base font-semibold text-white transition hover:text-[#ff711c] lg:text-lg"
+                  className={[
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-base font-semibold transition lg:text-lg",
+                    item.label === "Home"
+                      ? "text-[#ff711c]"
+                      : "text-white hover:text-[#ff711c]",
+                  ].join(" ")}
                 >
+                  {item.label === "Home" ? (
+                    <HomeIcon className="h-4 w-4" />
+                  ) : item.label === "Leaderboard" ? (
+                    <ChartIcon className="h-4 w-4" />
+                  ) : item.label === "Riwayat" ? (
+                    <HistoryIcon className="h-4 w-4" />
+                  ) : (
+                    <CalculatorIcon className="h-4 w-4" />
+                  )}
                   {item.label}
                 </Link>
               </li>
@@ -642,7 +662,7 @@ export default function Home() {
       >
         <Link
           href="/"
-          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-[#293275]"
         >
           <HomeIcon className="h-[22px] w-[22px]" />
           <span>Home</span>
@@ -655,7 +675,7 @@ export default function Home() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="#"
+          href="/riwayat"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />

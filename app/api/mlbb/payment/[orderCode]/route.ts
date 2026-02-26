@@ -2,6 +2,10 @@ import type { RowDataPacket } from "mysql2/promise";
 import { NextResponse } from "next/server";
 
 import {
+  ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
+  ACTIVE_ORDER_COOKIE_NAME,
+} from "@/lib/order-lock";
+import {
   getPendingMlbbOrder,
   isPendingOrderExpired,
 } from "@/lib/pending-order-store";
@@ -36,7 +40,7 @@ export async function GET(
         Math.floor((new Date(pending.expires_at).getTime() - Date.now()) / 1000),
       );
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         status: "ok",
         payment: {
           order_number: pending.order_number,
@@ -53,6 +57,16 @@ export async function GET(
           status: pending.status,
         },
       });
+      response.cookies.set({
+        name: ACTIVE_ORDER_COOKIE_NAME,
+        value: pending.order_number,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
+      });
+      return response;
     }
 
     const db = getDbPool();
@@ -67,13 +81,20 @@ export async function GET(
     );
 
     if (rows.length === 0) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { status: "error", message: "Order tidak ditemukan." },
         { status: 404 },
       );
+      response.cookies.set({
+        name: ACTIVE_ORDER_COOKIE_NAME,
+        value: "",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       status: "ok",
       payment: {
         order_number: rows[0].order_number,
@@ -88,6 +109,13 @@ export async function GET(
         status: rows[0].status,
       },
     });
+    response.cookies.set({
+      name: ACTIVE_ORDER_COOKIE_NAME,
+      value: "",
+      path: "/",
+      maxAge: 0,
+    });
+    return response;
   } catch (error) {
     console.error("[api/mlbb/payment/[orderCode]] unexpected error:", error);
     return NextResponse.json(
@@ -96,4 +124,3 @@ export async function GET(
     );
   }
 }
-

@@ -1,6 +1,10 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { NextResponse } from "next/server";
 
+import {
+  ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
+  ACTIVE_ORDER_COOKIE_NAME,
+} from "@/lib/order-lock";
 import { getPendingMlbbOrder, isPendingOrderExpired } from "@/lib/pending-order-store";
 import { getDbPool } from "@/lib/tidb";
 
@@ -81,9 +85,9 @@ function toStatusFlags(statusValue: string): {
 
   if (isDone) {
     return {
-      payment_status: "LUNAS",
+      payment_status: "PAID",
       payment_status_code: "paid",
-      transaction_status: "SELESAI",
+      transaction_status: "COMPLETED",
       transaction_status_code: "done",
     };
   }
@@ -164,7 +168,7 @@ export async function GET(
         isExpired,
         isUserConfirmed: pending.payment_confirmed_by_user,
       });
-      return NextResponse.json({
+      const response = NextResponse.json({
         status: "ok",
         invoice: {
           code: pending.order_number,
@@ -190,6 +194,16 @@ export async function GET(
           ...statusFlags,
         },
       });
+      response.cookies.set({
+        name: ACTIVE_ORDER_COOKIE_NAME,
+        value: pending.order_number,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
+      });
+      return response;
     }
 
     const db = getDbPool();
@@ -214,16 +228,23 @@ export async function GET(
     );
 
     if (rows.length === 0) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { status: "error", message: "Invoice tidak ditemukan." },
         { status: 404 },
       );
+      response.cookies.set({
+        name: ACTIVE_ORDER_COOKIE_NAME,
+        value: "",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
 
     const row = rows[0];
     const statusFlags = toStatusFlags(row.status);
     const isDone = statusFlags.transaction_status_code === "done";
-    return NextResponse.json({
+    const response = NextResponse.json({
       status: "ok",
       invoice: {
         code: row.order_number,
@@ -251,6 +272,13 @@ export async function GET(
         ...statusFlags,
       },
     });
+    response.cookies.set({
+      name: ACTIVE_ORDER_COOKIE_NAME,
+      value: "",
+      path: "/",
+      maxAge: 0,
+    });
+    return response;
   } catch (error) {
     console.error("[api/mlbb/invoice/[orderCode]] unexpected error:", error);
     return NextResponse.json(
