@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
+import { TopzynNotice } from "@/components/ui/topzyn-notice";
 
 type NotificationType = "success" | "error";
 
@@ -19,6 +20,21 @@ type RegisterStartResponse = {
   email?: string;
   expire?: number;
 };
+
+function BackIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+      <path
+        d="M15 6l-6 6 6 6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function parseNotification(searchParams: URLSearchParams): NotificationPayload | null {
   const type = searchParams.get("type");
@@ -40,14 +56,73 @@ function parseNotification(searchParams: URLSearchParams): NotificationPayload |
   };
 }
 
+function EyeIcon({ isVisible }: { isVisible: boolean }) {
+  if (isVisible) {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+        <path
+          d="M2.2 12c1.4-4.2 5.3-7 9.8-7s8.4 2.8 9.8 7c-1.4 4.2-5.3 7-9.8 7s-8.4-2.8-9.8-7Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle
+          cx="12"
+          cy="12"
+          r="3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+      <path
+        d="M3.4 3.4 20.6 20.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10.6 5.2A10.5 10.5 0 0 1 12 5c4.5 0 8.4 2.8 9.8 7a10.7 10.7 0 0 1-2.5 3.9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.2 7.3A10.6 10.6 0 0 0 2.2 12c1.4 4.2 5.3 7 9.8 7 1.6 0 3.1-.4 4.4-1.1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export default function RegisterPage() {
   const [notification, setNotification] = useState<NotificationPayload | null>(null);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showNotification, setShowNotification] = useState(false);
-  const [isNotificationClosing, setIsNotificationClosing] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const isFormReady =
     username.trim() !== "" && email.trim() !== "" && password.trim() !== "";
@@ -59,7 +134,6 @@ export default function RegisterPage() {
         return;
       }
       setNotification(parsed);
-      setShowNotification(true);
     });
 
     return () => {
@@ -68,15 +142,18 @@ export default function RegisterPage() {
   }, []);
 
   useEffect(() => {
-    if (!showNotification || !notification) {
+    if (!notification?.redirect) {
       return;
     }
 
-    if (notification.redirect) {
+    const timeoutId = window.setTimeout(() => {
       window.location.href = notification.redirect;
-      return;
-    }
-  }, [notification, showNotification]);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [notification]);
 
   const showErrorNotification = (message: string) => {
     setNotification({
@@ -85,8 +162,6 @@ export default function RegisterPage() {
       message,
       redirect: "",
     });
-    setIsNotificationClosing(false);
-    setShowNotification(true);
   };
 
   const handleRegisterSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -142,6 +217,13 @@ export default function RegisterPage() {
 
         <div className="flex w-full items-center justify-center px-5 py-10 lg:w-1/2">
           <div className="w-full max-w-[420px]">
+            <Link
+              href="/"
+              className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#293275] transition hover:text-[#ff711c]"
+            >
+              <BackIcon />
+              Kembali ke Home
+            </Link>
             <Image
               src="/images/web_logo_topzyn.png"
               alt="TopZyn logo"
@@ -190,17 +272,27 @@ export default function RegisterPage() {
               <label htmlFor="password" className="text-sm font-semibold text-black">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mb-5 mt-2 w-full rounded-[10px] border border-zinc-300 px-3.5 py-3 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
-                required
-              />
+              <div className="relative mb-5 mt-2">
+                <input
+                  id="password"
+                  name="password"
+                  type={isPasswordVisible ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="w-full rounded-[10px] border border-zinc-300 px-3.5 py-3 pr-11 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setIsPasswordVisible((value) => !value)}
+                  aria-label={isPasswordVisible ? "Sembunyikan password" : "Lihat password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-[#293275]"
+                >
+                  <EyeIcon isVisible={isPasswordVisible} />
+                </button>
+              </div>
 
               <button
                 type="submit"
@@ -225,66 +317,14 @@ export default function RegisterPage() {
           </div>
         </div>
       </section>
-
-      {showNotification && notification ? (
-        <div
-          className={[
-            "fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-4",
-            isNotificationClosing
-              ? "opacity-0 transition-opacity duration-300"
-              : "[animation:fadeIn_0.25s_ease_forwards]",
-          ].join(" ")}
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsNotificationClosing(true);
-              window.setTimeout(() => setShowNotification(false), 180);
-            }
-          }}
-        >
-          <div className="w-full max-w-[320px] rounded-[18px] bg-white px-5 py-5 text-center shadow-[0_20px_45px_rgba(0,0,0,0.22)] sm:max-w-[420px] sm:rounded-[22px] sm:px-9 sm:py-8">
-            <div
-              className={[
-                "mx-auto mb-3 flex h-[70px] w-[70px] items-center justify-center rounded-full sm:mb-[18px] sm:h-[90px] sm:w-[90px]",
-                notification.type === "success"
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-red-50 text-red-600",
-              ].join(" ")}
-            >
-              {notification.type === "success" ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-9 w-9 sm:h-[46px] sm:w-[46px]">
-                  <path
-                    d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
-                    fill="currentColor"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-9 w-9 sm:h-[46px] sm:w-[46px]">
-                  <path d="M11 7h2v6h-2zm0 8h2v2h-2z" fill="currentColor" />
-                  <path
-                    d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"
-                    fill="currentColor"
-                  />
-                </svg>
-              )}
-            </div>
-            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-[22px]">{notification.title}</h3>
-            <p className="text-sm text-slate-500 sm:text-[15px]">{notification.message}</p>
-            {!notification.redirect ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNotificationClosing(true);
-                  window.setTimeout(() => setShowNotification(false), 180);
-                }}
-                className="mt-4 rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 sm:text-sm"
-              >
-                Tutup
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <TopzynNotice
+        open={Boolean(notification)}
+        tone={notification?.type === "success" ? "success" : "error"}
+        title={notification?.title ?? ""}
+        message={notification?.message ?? ""}
+        autoHideMs={notification?.redirect ? 1300 : 5000}
+        onClose={() => setNotification(null)}
+      />
     </main>
   );
 }

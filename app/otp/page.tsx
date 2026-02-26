@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { type ClipboardEvent, type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { TopzynNotice } from "@/components/ui/topzyn-notice";
 
 type NotificationType = "success" | "error";
 
@@ -38,8 +39,6 @@ export default function OtpPage() {
   const [digits, setDigits] = useState<string[]>(() => Array.from({ length: OTP_LENGTH }, () => ""));
   const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [notification, setNotification] = useState<NotificationPayload | null>(null);
-  const [showNotification, setShowNotification] = useState(false);
-  const [isNotificationClosing, setIsNotificationClosing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
@@ -83,20 +82,21 @@ export default function OtpPage() {
   }, [expireAt]);
 
   useEffect(() => {
-    if (!showNotification || !notification) {
+    if (!notification?.redirect) {
       return;
     }
 
-    if (notification.redirect) {
+    const timeoutId = window.setTimeout(() => {
       window.location.href = notification.redirect;
-      return;
-    }
-  }, [notification, showNotification]);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [notification]);
 
   const openNotification = (payload: NotificationPayload) => {
     setNotification(payload);
-    setIsNotificationClosing(false);
-    setShowNotification(true);
   };
 
   const handleDigitInput = (index: number, rawValue: string) => {
@@ -221,8 +221,8 @@ export default function OtpPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#004370] px-4 py-6">
-      <section className="w-full max-w-[360px] rounded-2xl bg-white px-6 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.1)] sm:px-7">
+    <main className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#e8ecff_0%,#f8fafc_42%,#eef2ff_100%)] px-4 py-6">
+      <section className="w-full max-w-[360px] rounded-2xl border border-[#293275]/20 bg-white/95 px-6 py-7 text-center shadow-[0_16px_38px_rgba(41,50,117,0.16)] sm:px-7">
         <div className="mb-5 mt-2 flex justify-center">
           <Image
             src="/images/verifikasi_otp_raypoint.png"
@@ -234,9 +234,10 @@ export default function OtpPage() {
           />
         </div>
 
-        <h2 className="mb-2 text-[26px] font-semibold text-zinc-900">Verifikasi Email</h2>
-        <p className="mb-5 text-sm text-zinc-500">
-          Kode OTP telah dikirim ke email <span className="font-semibold">{email || "-"}</span>
+        <h2 className="mb-2 text-[26px] font-semibold text-[#1d2761]">Verifikasi Email</h2>
+        <p className="mb-5 text-sm text-slate-600">
+          Kode OTP telah dikirim ke email{" "}
+          <span className="font-semibold text-[#293275]">{email || "-"}</span>
         </p>
 
         <form onSubmit={handleVerifyOtp}>
@@ -253,7 +254,7 @@ export default function OtpPage() {
                 value={digit}
                 onChange={(event) => handleDigitInput(index, event.target.value)}
                 onKeyDown={(event) => handleDigitKeyDown(index, event)}
-                className="h-[50px] w-[45px] rounded-lg border-2 border-zinc-300 text-center text-[22px] font-semibold text-zinc-900 outline-none transition focus:border-[#0081d6] sm:h-[46px] sm:w-[40px] sm:text-xl"
+                className="h-[50px] w-[45px] rounded-lg border-2 border-[#c7d2fe] bg-[#f8faff] text-center text-[22px] font-semibold text-[#1d2761] outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/20 sm:h-[46px] sm:w-[40px] sm:text-xl"
                 required
               />
             ))}
@@ -265,7 +266,7 @@ export default function OtpPage() {
             className={[
               "h-[45px] w-full rounded-lg border-none text-base font-semibold text-white transition",
               isOtpReady && !isExpired && !isVerifying
-                ? "cursor-pointer bg-[#0081d6] hover:bg-[#004370]"
+                ? "cursor-pointer bg-[#ff711c] hover:bg-[#293275]"
                 : "cursor-not-allowed bg-[#9aa6b2]",
             ].join(" ")}
           >
@@ -273,7 +274,7 @@ export default function OtpPage() {
           </button>
         </form>
 
-        <div className="mt-4 flex items-center justify-center gap-1.5 text-[13px] text-zinc-600">
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[13px] text-slate-600">
           <span>Belum dapat kode?</span>
           <button
             type="button"
@@ -283,7 +284,7 @@ export default function OtpPage() {
               "border-none bg-transparent p-0 text-[13px] font-semibold",
               isResending
                 ? "cursor-not-allowed text-zinc-400"
-                : "cursor-pointer text-[#0081d6] hover:text-[#004370]",
+                : "cursor-pointer text-[#ff711c] hover:text-[#293275]",
             ].join(" ")}
           >
             {isResending ? "Mengirim..." : "Kirim ulang"}
@@ -293,72 +294,20 @@ export default function OtpPage() {
         <p
           className={[
             "mt-2 text-[13px] font-semibold",
-            isExpired ? "text-red-600" : "text-zinc-600",
+            isExpired ? "text-red-600" : "text-[#293275]",
           ].join(" ")}
         >
           {expireAt > 0 ? (isExpired ? "OTP kadaluarsa" : formatRemaining(remainingSeconds)) : ""}
         </p>
       </section>
-
-      {showNotification && notification ? (
-        <div
-          className={[
-            "fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 px-4",
-            isNotificationClosing
-              ? "opacity-0 transition-opacity duration-300"
-              : "[animation:fadeIn_0.25s_ease_forwards]",
-          ].join(" ")}
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsNotificationClosing(true);
-              window.setTimeout(() => setShowNotification(false), 180);
-            }
-          }}
-        >
-          <div className="w-full max-w-[320px] rounded-[18px] bg-white px-5 py-5 text-center shadow-[0_20px_45px_rgba(0,0,0,0.22)] sm:max-w-[420px] sm:rounded-[22px] sm:px-9 sm:py-8">
-            <div
-              className={[
-                "mx-auto mb-3 flex h-[70px] w-[70px] items-center justify-center rounded-full sm:mb-[18px] sm:h-[90px] sm:w-[90px]",
-                notification.type === "success"
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-red-50 text-red-600",
-              ].join(" ")}
-            >
-              {notification.type === "success" ? (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-9 w-9 sm:h-[46px] sm:w-[46px]">
-                  <path
-                    d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
-                    fill="currentColor"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="h-9 w-9 sm:h-[46px] sm:w-[46px]">
-                  <path d="M11 7h2v6h-2zm0 8h2v2h-2z" fill="currentColor" />
-                  <path
-                    d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"
-                    fill="currentColor"
-                  />
-                </svg>
-              )}
-            </div>
-            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-[22px]">{notification.title}</h3>
-            <p className="text-sm text-slate-500 sm:text-[15px]">{notification.message}</p>
-            {!notification.redirect ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsNotificationClosing(true);
-                  window.setTimeout(() => setShowNotification(false), 180);
-                }}
-                className="mt-4 rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 sm:text-sm"
-              >
-                Tutup
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <TopzynNotice
+        open={Boolean(notification)}
+        tone={notification?.type === "success" ? "success" : "error"}
+        title={notification?.title ?? ""}
+        message={notification?.message ?? ""}
+        autoHideMs={notification?.redirect ? 1300 : 5000}
+        onClose={() => setNotification(null)}
+      />
     </main>
   );
 }

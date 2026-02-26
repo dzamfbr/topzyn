@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { TopzynNotice } from "@/components/ui/topzyn-notice";
 
 type ProfileData = {
   id: number;
@@ -62,6 +63,66 @@ function PencilIcon() {
   );
 }
 
+function EyeIcon({ isVisible }: { isVisible: boolean }) {
+  if (isVisible) {
+    return (
+      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+        <path
+          d="M2.2 12c1.4-4.2 5.3-7 9.8-7s8.4 2.8 9.8 7c-1.4 4.2-5.3 7-9.8 7s-8.4-2.8-9.8-7Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle
+          cx="12"
+          cy="12"
+          r="3"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
+      <path
+        d="M3.4 3.4 20.6 20.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M10.6 5.2A10.5 10.5 0 0 1 12 5c4.5 0 8.4 2.8 9.8 7a10.7 10.7 0 0 1-2.5 3.9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.2 7.3A10.6 10.6 0 0 0 2.2 12c1.4 4.2 5.3 7 9.8 7 1.6 0 3.1-.4 4.4-1.1"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 type EditModalProps = {
   title: string;
   children: React.ReactNode;
@@ -106,6 +167,9 @@ export default function ProfilePage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -156,20 +220,6 @@ export default function ProfilePage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!notification) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setNotification(null);
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [notification]);
-
   const joinDateLabel = useMemo(() => {
     if (!profile) {
       return "-";
@@ -197,6 +247,9 @@ export default function ProfilePage() {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setIsEditPasswordOpen(true);
   };
 
@@ -584,14 +637,28 @@ export default function ProfilePage() {
               >
                 Password Lama
               </label>
-              <input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(event) => setCurrentPassword(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
-                required
-              />
+              <div className="relative mt-1">
+                <input
+                  id="current-password"
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-11 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword((value) => !value)}
+                  aria-label={
+                    showCurrentPassword
+                      ? "Sembunyikan password lama"
+                      : "Lihat password lama"
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-[#293275]"
+                >
+                  <EyeIcon isVisible={showCurrentPassword} />
+                </button>
+              </div>
             </div>
             <div>
               <label
@@ -600,14 +667,28 @@ export default function ProfilePage() {
               >
                 Password Baru
               </label>
-              <input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
-                required
-              />
+              <div className="relative mt-1">
+                <input
+                  id="new-password"
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-11 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((value) => !value)}
+                  aria-label={
+                    showNewPassword
+                      ? "Sembunyikan password baru"
+                      : "Lihat password baru"
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-[#293275]"
+                >
+                  <EyeIcon isVisible={showNewPassword} />
+                </button>
+              </div>
             </div>
             <div>
               <label
@@ -616,14 +697,28 @@ export default function ProfilePage() {
               >
                 Konfirmasi Password Baru
               </label>
-              <input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
-                required
-              />
+              <div className="relative mt-1">
+                <input
+                  id="confirm-password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-11 text-sm outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((value) => !value)}
+                  aria-label={
+                    showConfirmPassword
+                      ? "Sembunyikan konfirmasi password"
+                      : "Lihat konfirmasi password"
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-[#293275]"
+                >
+                  <EyeIcon isVisible={showConfirmPassword} />
+                </button>
+              </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -650,37 +745,14 @@ export default function ProfilePage() {
         </EditModal>
       ) : null}
 
-      {notification ? (
-        <div className="fixed left-1/2 top-3 z-[1200] w-[calc(100%-1rem)] max-w-xs -translate-x-1/2 rounded-xl border border-[#293275]/20 bg-white p-2.5 shadow-lg sm:top-4 sm:max-w-sm sm:p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p
-                className={[
-                  "text-xs font-bold sm:text-sm",
-                  notification.type === "success"
-                    ? "text-emerald-600"
-                    : "text-red-600",
-                ].join(" ")}
-              >
-                {notification.title}
-              </p>
-              <p className="mt-1 text-[11px] text-slate-600 sm:text-xs">
-                {notification.message}
-              </p>
-              <p className="mt-1 text-[11px] font-medium text-slate-400">
-                Menghilang dalam 5 detik
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setNotification(null)}
-              className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <TopzynNotice
+        open={Boolean(notification)}
+        tone={notification?.type === "success" ? "success" : "error"}
+        title={notification?.title ?? ""}
+        message={notification?.message ?? ""}
+        autoHideMs={5000}
+        onClose={() => setNotification(null)}
+      />
     </main>
   );
 }

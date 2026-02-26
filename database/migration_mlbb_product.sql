@@ -1,28 +1,4 @@
-CREATE DATABASE IF NOT EXISTS topzyn;
 USE topzyn;
-
-CREATE TABLE IF NOT EXISTS account (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  username VARCHAR(50) NOT NULL UNIQUE,
-  email VARCHAR(120) NOT NULL UNIQUE,
-  phone_number VARCHAR(20) NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(20) NOT NULL DEFAULT 'user',
-  total_top_up BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS topup_transaction (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  account_id BIGINT NOT NULL,
-  product_code VARCHAR(60) NOT NULL,
-  amount BIGINT UNSIGNED NOT NULL,
-  status VARCHAR(20) NOT NULL DEFAULT 'success',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_topup_transaction_account
-    FOREIGN KEY (account_id) REFERENCES account(id)
-    ON DELETE CASCADE
-);
 
 CREATE TABLE IF NOT EXISTS mlbb_topup_item (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -84,3 +60,45 @@ CREATE TABLE IF NOT EXISTS mlbb_topup_order (
   CONSTRAINT fk_mlbb_order_payment
     FOREIGN KEY (payment_method_id) REFERENCES payment_method(id)
 );
+
+INSERT INTO mlbb_topup_item
+  (code, name, image_url, base_price, final_price, discount_percent, is_active, sort_order)
+VALUES
+  ('ML_5_DM', '5 Diamond', '/images/diamond_mobile_legends.png', 2000, 1800, 10, 1, 1),
+  ('ML_12_DM', '12 Diamond', '/images/diamond_mobile_legends.png', 4200, 3900, 7, 1, 2),
+  ('ML_28_DM', '28 Diamond', '/images/diamond_mobile_legends.png', 9000, 8500, 5, 1, 3),
+  ('ML_36_DM', '36 Diamond', '/images/diamond_mobile_legends.png', 11200, 10500, 6, 1, 4),
+  ('ML_74_DM', '74 Diamond', '/images/diamond_mobile_legends.png', 22500, 20900, 7, 1, 5),
+  ('ML_WDP', 'Weekly Diamond Pass', '/images/weekly_diamond_pass.png', 32000, 29900, 7, 1, 6)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  image_url = VALUES(image_url),
+  base_price = VALUES(base_price),
+  final_price = VALUES(final_price),
+  discount_percent = VALUES(discount_percent),
+  is_active = VALUES(is_active),
+  sort_order = VALUES(sort_order);
+
+INSERT INTO payment_method
+  (code, name, logo_url, is_active, sort_order)
+VALUES
+  ('QRIS', 'QRIS', '/images/qris_topzyn.png', 1, 1)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  logo_url = VALUES(logo_url),
+  is_active = VALUES(is_active),
+  sort_order = VALUES(sort_order);
+
+INSERT INTO promo_code
+  (code, discount_type, discount_value, min_subtotal, max_discount, is_active, starts_at, ends_at)
+VALUES
+  ('TOPZYN10', 'percent', 10, 10000, 7000, 1, NULL, NULL),
+  ('HEMAT5K', 'amount', 5000, 25000, NULL, 1, NULL, NULL)
+ON DUPLICATE KEY UPDATE
+  discount_type = VALUES(discount_type),
+  discount_value = VALUES(discount_value),
+  min_subtotal = VALUES(min_subtotal),
+  max_discount = VALUES(max_discount),
+  is_active = VALUES(is_active),
+  starts_at = VALUES(starts_at),
+  ends_at = VALUES(ends_at);

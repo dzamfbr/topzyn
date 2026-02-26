@@ -30,7 +30,10 @@ const NAV_LINKS = [
   { label: "Kalkulator", href: "#" },
 ];
 
-const MAX_VISIBLE = 6;
+const DESKTOP_INITIAL_ROWS = 2;
+const DESKTOP_COLUMNS = 7;
+const MOBILE_INITIAL_ROWS = 3;
+const MOBILE_COLUMNS = 4;
 
 function FallbackImage({
   src,
@@ -270,7 +273,16 @@ export default function Home() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [activeTab, setActiveTab] = useState<ProductCategory>("topup");
-  const [visibleCount, setVisibleCount] = useState(MAX_VISIBLE);
+  const [isDesktopGrid, setIsDesktopGrid] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(
+    MOBILE_INITIAL_ROWS * MOBILE_COLUMNS,
+  );
+  const [productAnimationMode, setProductAnimationMode] = useState<
+    "none" | "tab" | "loadMore"
+  >("tab");
+  const [loadMoreStartIndex, setLoadMoreStartIndex] = useState(0);
+  const [productAnimationSeed, setProductAnimationSeed] = useState(0);
   const [slideIndex, setSlideIndex] = useState(0);
   const [canSlideTransition, setCanSlideTransition] = useState(true);
 
@@ -289,8 +301,43 @@ export default function Home() {
     [activeTab, products],
   );
 
+  const initialVisibleCount = useMemo(() => {
+    if (isDesktopGrid) {
+      return DESKTOP_INITIAL_ROWS * DESKTOP_COLUMNS;
+    }
+    return MOBILE_INITIAL_ROWS * MOBILE_COLUMNS;
+  }, [isDesktopGrid]);
+
   const displayedProducts = filteredProducts.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredProducts.length;
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+
+    const syncViewport = () => {
+      setIsDesktopGrid(media.matches);
+    };
+
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+
+    return () => media.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (isExpanded) {
+      const nextVisible = filteredProducts.length;
+      setVisibleCount((previous) =>
+        previous === nextVisible ? previous : nextVisible,
+      );
+      return;
+    }
+
+    const nextVisible = Math.min(initialVisibleCount, filteredProducts.length);
+    setVisibleCount((previous) =>
+      previous === nextVisible ? previous : nextVisible,
+    );
+  }, [filteredProducts.length, initialVisibleCount, isExpanded]);
 
   useEffect(() => {
     let disposed = false;
@@ -449,11 +496,19 @@ export default function Home() {
 
   const handleTabChange = (category: ProductCategory) => {
     setActiveTab(category);
-    setVisibleCount(MAX_VISIBLE);
+    setIsExpanded(false);
+    setProductAnimationMode("tab");
+    setProductAnimationSeed((previous) => previous + 1);
   };
 
   const handleLoadMore = () => {
-    setVisibleCount(filteredProducts.length);
+    if (!canLoadMore) {
+      return;
+    }
+    setLoadMoreStartIndex(visibleCount);
+    setIsExpanded(true);
+    setProductAnimationMode("loadMore");
+    setProductAnimationSeed((previous) => previous + 1);
   };
 
   const handleLogoutConfirm = async () => {
@@ -849,11 +904,29 @@ export default function Home() {
         <div className="grid grid-cols-4 gap-3 md:grid-cols-7 md:gap-4">
           {displayedProducts.map((product, index) => (
             <Link
-              key={`${product.name}-${index}`}
+              key={`${activeTab}-${product.name}-${index}-${productAnimationSeed}`}
               href={product.link}
               className="cards block [perspective:500px]"
             >
-              <figure className="card group relative overflow-hidden rounded-md border-2 border-zinc-600 bg-[#16161d] [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out hover:[transform:translateZ(6px)_rotateX(8deg)_rotateY(8deg)]">
+              <figure
+                className={[
+                  "card group relative overflow-hidden rounded-md border-2 border-zinc-600 bg-[#16161d] [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out hover:[transform:translateZ(6px)_rotateX(8deg)_rotateY(8deg)]",
+                  productAnimationMode === "tab" ||
+                  (productAnimationMode === "loadMore" &&
+                    index >= loadMoreStartIndex)
+                    ? "opacity-0 motion-safe:[animation:productCardReveal_420ms_cubic-bezier(0.18,0.8,0.28,1)_forwards]"
+                    : "",
+                ].join(" ")}
+                style={{
+                  animationDelay:
+                    productAnimationMode === "tab"
+                      ? `${Math.min(index, 11) * 45}ms`
+                      : productAnimationMode === "loadMore" &&
+                          index >= loadMoreStartIndex
+                        ? `${Math.min(index - loadMoreStartIndex, 8) * 50}ms`
+                        : undefined,
+                }}
+              >
                 <FallbackImage
                   src={product.image}
                   alt={product.name}
@@ -1028,6 +1101,18 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <style jsx global>{`
+        @keyframes productCardReveal {
+          from {
+            opacity: 0;
+            transform: translateY(16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
