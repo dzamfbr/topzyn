@@ -225,7 +225,7 @@ export default function OtpPage() {
       <section className="w-full max-w-[360px] rounded-2xl border border-[#293275]/20 bg-white/95 px-6 py-7 text-center shadow-[0_16px_38px_rgba(41,50,117,0.16)] sm:px-7">
         <div className="mb-5 mt-2 flex justify-center">
           <Image
-            src="/images/verifikasi_otp_raypoint.png"
+            src="/images/verifikasi_otp_topzyn.png"
             alt="OTP verification"
             width={100}
             height={100}

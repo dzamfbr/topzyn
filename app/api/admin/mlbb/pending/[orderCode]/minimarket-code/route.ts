@@ -7,11 +7,17 @@ import {
 
 export const runtime = "nodejs";
 
-const MAX_QRIS_UPLOAD_BYTES = 3 * 1024 * 1024;
-
-function isQrisPayment(codeOrName: string): boolean {
+function isMinimarketPayment(codeOrName: string): boolean {
   const value = codeOrName.trim().toUpperCase();
-  return value.includes("QRIS");
+  return (
+    value.includes("MINIMARKET") ||
+    value.includes("ALFA") ||
+    value.includes("INDO")
+  );
+}
+
+function normalizeMinimarketCode(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
 }
 
 export async function POST(
@@ -35,53 +41,53 @@ export async function POST(
         { status: 404 },
       );
     }
-    if (!isQrisPayment(pending.payment_method_code || pending.payment_method_name)) {
+
+    if (
+      !isMinimarketPayment(
+        pending.payment_method_code || pending.payment_method_name,
+      )
+    ) {
       return NextResponse.json(
-        { status: "error", message: "Order ini bukan metode QRIS." },
+        { status: "error", message: "Order ini bukan metode minimarket." },
         { status: 400 },
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get("qris");
-    if (!(file instanceof File)) {
+    const body = (await request.json()) as { payment_code?: string };
+    const paymentCode = normalizeMinimarketCode(body.payment_code ?? "");
+    if (!paymentCode) {
       return NextResponse.json(
-        { status: "error", message: "File QRIS wajib diunggah." },
+        { status: "error", message: "Kode pembayaran minimarket wajib diisi." },
         { status: 400 },
       );
     }
 
-    if (!file.type.startsWith("image/")) {
+    if (paymentCode.length < 6 || paymentCode.length > 32) {
       return NextResponse.json(
-        { status: "error", message: "Format file harus gambar." },
+        {
+          status: "error",
+          message: "Kode pembayaran minimarket harus 6-32 karakter.",
+        },
         { status: 400 },
       );
     }
-
-    if (file.size > MAX_QRIS_UPLOAD_BYTES) {
-      return NextResponse.json(
-        { status: "error", message: "Ukuran gambar maksimal 3MB." },
-        { status: 400 },
-      );
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const dataUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
 
     updatePendingMlbbOrder(orderCode, (current) => ({
       ...current,
-      qris_image_data_url: dataUrl,
-      minimarket_payment_code: null,
+      minimarket_payment_code: paymentCode,
     }));
 
     return NextResponse.json({
       status: "ok",
-      message: "QRIS berhasil diunggah.",
+      message: "Kode pembayaran minimarket berhasil disimpan.",
     });
   } catch (error) {
-    console.error("[api/admin/mlbb/pending/[orderCode]/qris POST] unexpected error:", error);
+    console.error(
+      "[api/admin/mlbb/pending/[orderCode]/minimarket-code POST] unexpected error:",
+      error,
+    );
     return NextResponse.json(
-      { status: "error", message: "Gagal upload QRIS." },
+      { status: "error", message: "Gagal menyimpan kode minimarket." },
       { status: 500 },
     );
   }
@@ -108,27 +114,25 @@ export async function DELETE(
         { status: 404 },
       );
     }
-    if (!isQrisPayment(pending.payment_method_code || pending.payment_method_name)) {
-      return NextResponse.json(
-        { status: "error", message: "Order ini bukan metode QRIS." },
-        { status: 400 },
-      );
-    }
 
     updatePendingMlbbOrder(orderCode, (current) => ({
       ...current,
-      qris_image_data_url: null,
+      minimarket_payment_code: null,
     }));
 
     return NextResponse.json({
       status: "ok",
-      message: "QRIS berhasil dihapus.",
+      message: "Kode pembayaran minimarket berhasil dihapus.",
     });
   } catch (error) {
-    console.error("[api/admin/mlbb/pending/[orderCode]/qris DELETE] unexpected error:", error);
+    console.error(
+      "[api/admin/mlbb/pending/[orderCode]/minimarket-code DELETE] unexpected error:",
+      error,
+    );
     return NextResponse.json(
-      { status: "error", message: "Gagal menghapus QRIS." },
+      { status: "error", message: "Gagal menghapus kode minimarket." },
       { status: 500 },
     );
   }
 }
+

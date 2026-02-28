@@ -18,6 +18,7 @@ type CompletedOrderRow = RowDataPacket & {
   status: string;
   created_at: string;
   item_name: string;
+  payment_method_code: string;
   payment_method_name: string;
 };
 
@@ -50,6 +51,11 @@ function normalizeWhatsappTarget(value: string): string {
     return `62${digits}`;
   }
   return digits;
+}
+
+function isCashPaymentMethod(codeOrName: string): boolean {
+  const value = codeOrName.trim().toUpperCase();
+  return value.includes("COD") || value.includes("CASH");
 }
 
 function buildAdminPayUrl(code: string, itemName: string, totalAmount: number): string {
@@ -103,6 +109,7 @@ function toStatusFlags(statusValue: string): {
 function toPendingInvoiceStatus(args: {
   isExpired: boolean;
   isUserConfirmed: boolean;
+  isCashPayment: boolean;
 }): {
   payment_status: string;
   payment_status_code: "pending" | "paid";
@@ -111,6 +118,17 @@ function toPendingInvoiceStatus(args: {
   can_pay_now: boolean;
   pay_button_text: string;
 } {
+  if (args.isCashPayment) {
+    return {
+      payment_status: "PENDING",
+      payment_status_code: "pending",
+      transaction_status: "MENUNGGU PEMBAYARAN CASH",
+      transaction_status_code: "pending",
+      can_pay_now: false,
+      pay_button_text: "Pembayaran cash diproses manual",
+    };
+  }
+
   if (args.isExpired) {
     return {
       payment_status: "KADALUARSA",
@@ -160,6 +178,9 @@ export async function GET(
     const pending = getPendingMlbbOrder(orderCode);
     if (pending) {
       const isExpired = isPendingOrderExpired(pending);
+      const isCashPayment = isCashPaymentMethod(
+        pending.payment_method_code ?? pending.payment_method_name,
+      );
       const remainingSeconds = Math.max(
         0,
         Math.floor((new Date(pending.expires_at).getTime() - Date.now()) / 1000),
@@ -167,6 +188,7 @@ export async function GET(
       const statusFlags = toPendingInvoiceStatus({
         isExpired,
         isUserConfirmed: pending.payment_confirmed_by_user,
+        isCashPayment,
       });
       const response = NextResponse.json({
         status: "ok",
@@ -176,6 +198,7 @@ export async function GET(
           product: "Mobile Legends (MLBB)",
           item: pending.item_name,
           target: `${pending.game_user_id} (${pending.game_server})`,
+          payment_method_code: pending.payment_method_code,
           payment_method: pending.payment_method_name,
           total: Number(pending.total_amount),
           pay_url: buildAdminPayUrl(
@@ -217,6 +240,7 @@ export async function GET(
           o.status,
           o.created_at,
           i.name AS item_name,
+          p.code AS payment_method_code,
           p.name AS payment_method_name
         FROM mlbb_topup_order o
         INNER JOIN mlbb_topup_item i ON i.id = o.item_id
@@ -252,6 +276,7 @@ export async function GET(
         product: "Mobile Legends (MLBB)",
         item: row.item_name,
         target: `${row.game_user_id} (${row.game_server})`,
+        payment_method_code: row.payment_method_code,
         payment_method: row.payment_method_name,
         total: Number(row.total_amount),
         pay_url: buildAdminPayUrl(

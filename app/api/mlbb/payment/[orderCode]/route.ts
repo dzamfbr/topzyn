@@ -16,7 +16,24 @@ export const runtime = "nodejs";
 type CompletedOrderRow = RowDataPacket & {
   order_number: string;
   status: string;
+  payment_method_code: string;
+  payment_method_name: string;
 };
+
+function getPaymentKind(codeOrName: string): "qris" | "cash" | "minimarket" {
+  const value = codeOrName.trim().toUpperCase();
+  if (
+    value.includes("MINIMARKET") ||
+    value.includes("ALFA") ||
+    value.includes("INDO")
+  ) {
+    return "minimarket";
+  }
+  if (value.includes("COD") || value.includes("CASH")) {
+    return "cash";
+  }
+  return "qris";
+}
 
 export async function GET(
   _request: Request,
@@ -46,8 +63,15 @@ export async function GET(
           order_number: pending.order_number,
           item_name: pending.item_name,
           total_amount: Number(pending.total_amount),
+          payment_method_code: pending.payment_method_code,
+          payment_method_name: pending.payment_method_name,
+          payment_kind: getPaymentKind(
+            pending.payment_method_code || pending.payment_method_name,
+          ),
           qris_image_url: pending.qris_image_data_url,
           qris_uploaded: Boolean(pending.qris_image_data_url),
+          minimarket_payment_code: pending.minimarket_payment_code,
+          minimarket_code_uploaded: Boolean(pending.minimarket_payment_code),
           payment_confirmed_by_user: pending.payment_confirmed_by_user,
           payment_confirmed_at: pending.payment_confirmed_at,
           created_at: pending.created_at,
@@ -72,8 +96,13 @@ export async function GET(
     const db = getDbPool();
     const [rows] = await db.query<CompletedOrderRow[]>(
       `
-        SELECT order_number, status
-        FROM mlbb_topup_order
+        SELECT
+          o.order_number,
+          o.status,
+          p.code AS payment_method_code,
+          p.name AS payment_method_name
+        FROM mlbb_topup_order o
+        INNER JOIN payment_method p ON p.id = o.payment_method_id
         WHERE order_number = ?
         LIMIT 1
       `,
@@ -94,12 +123,20 @@ export async function GET(
       return response;
     }
 
+    const paymentKind = getPaymentKind(
+      rows[0].payment_method_code || rows[0].payment_method_name,
+    );
     const response = NextResponse.json({
       status: "ok",
       payment: {
         order_number: rows[0].order_number,
+        payment_method_code: rows[0].payment_method_code,
+        payment_method_name: rows[0].payment_method_name,
+        payment_kind: paymentKind,
         qris_uploaded: false,
         qris_image_url: null,
+        minimarket_payment_code: null,
+        minimarket_code_uploaded: false,
         payment_confirmed_by_user: true,
         payment_confirmed_at: null,
         created_at: null,

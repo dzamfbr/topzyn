@@ -7,7 +7,9 @@ type PendingOrder = {
   order_number: string;
   item_name: string;
   target: string;
+  payment_method_code: string;
   payment_method_name: string;
+  payment_kind: "qris" | "cash" | "minimarket";
   total_amount: number;
   contact_whatsapp: string;
   created_at: string;
@@ -15,6 +17,8 @@ type PendingOrder = {
   status: string;
   qris_uploaded: boolean;
   qris_image_url: string | null;
+  minimarket_payment_code: string | null;
+  payment_asset_uploaded: boolean;
   payment_confirmed_by_user: boolean;
   payment_confirmed_at: string | null;
   is_expired: boolean;
@@ -70,6 +74,21 @@ function formatDate(value: string): string {
   }).format(date);
 }
 
+function getPaymentKind(codeOrName: string): "qris" | "cash" | "minimarket" {
+  const value = codeOrName.trim().toUpperCase();
+  if (
+    value.includes("MINIMARKET") ||
+    value.includes("ALFA") ||
+    value.includes("INDO")
+  ) {
+    return "minimarket";
+  }
+  if (value.includes("COD") || value.includes("CASH")) {
+    return "cash";
+  }
+  return "qris";
+}
+
 export default function AdminPendingOrderPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>("pending");
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
@@ -83,6 +102,9 @@ export default function AdminPendingOrderPage() {
   const [pendingCancelOrderCode, setPendingCancelOrderCode] = useState("");
   const [pendingDeleteCompletedOrderCode, setPendingDeleteCompletedOrderCode] =
     useState("");
+  const [minimarketCodeInput, setMinimarketCodeInput] = useState<
+    Record<string, string>
+  >({});
 
   const hasPendingOrders = useMemo(
     () => pendingOrders.length > 0,
@@ -113,7 +135,16 @@ export default function AdminPendingOrderPage() {
       if (!response.ok || data.status !== "ok") {
         throw new Error(data.message ?? "Gagal memuat pending order.");
       }
-      setPendingOrders(data.orders ?? []);
+      const nextOrders = data.orders ?? [];
+      setPendingOrders(nextOrders);
+      setMinimarketCodeInput((current) => {
+        const next: Record<string, string> = {};
+        nextOrders.forEach((order) => {
+          next[order.order_number] =
+            current[order.order_number] ?? order.minimarket_payment_code ?? "";
+        });
+        return next;
+      });
     } catch (error) {
       setLoadError(
         error instanceof Error ? error.message : "Gagal memuat pending order.",
@@ -339,6 +370,52 @@ export default function AdminPendingOrderPage() {
     }
   };
 
+  const handleSaveMinimarketCode = async (orderCode: string) => {
+    const codeInput = (minimarketCodeInput[orderCode] ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, "");
+    if (!codeInput) {
+      setNotice("Kode pembayaran minimarket wajib diisi.");
+      return;
+    }
+
+    setActionOrderCode(orderCode);
+    setActionType("upload-minimarket");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/admin/mlbb/pending/${encodeURIComponent(
+          orderCode,
+        )}/minimarket-code`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ payment_code: codeInput }),
+        },
+      );
+      const data = (await response.json()) as ActionResponse;
+      if (!response.ok || data.status !== "ok") {
+        throw new Error(
+          data.message ?? "Gagal menyimpan kode pembayaran minimarket.",
+        );
+      }
+      setNotice("Kode pembayaran minimarket berhasil disimpan.");
+      await loadPendingOrders();
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Gagal menyimpan kode pembayaran minimarket.",
+      );
+    } finally {
+      setActionOrderCode("");
+      setActionType("");
+    }
+  };
+
   const handleRefresh = () => {
     if (activeTab === "pending") {
       void loadPendingOrders();
@@ -424,6 +501,16 @@ export default function AdminPendingOrderPage() {
             <div className="grid gap-4">
               {pendingOrders.map((order) => {
                 const isBusy = actionOrderCode === order.order_number;
+                const paymentKind =
+                  order.payment_kind ||
+                  getPaymentKind(order.payment_method_code || order.payment_method_name);
+                const isCash = paymentKind === "cash";
+                const isQris = paymentKind === "qris";
+                const isMinimarket = paymentKind === "minimarket";
+                const isPaymentAssetReady = Boolean(order.payment_asset_uploaded);
+                const canComplete = isCash
+                  ? !isBusy
+                  : !isBusy && !order.is_expired && order.payment_confirmed_by_user;
                 return (
                   <article
                     key={order.order_number}
@@ -437,28 +524,40 @@ export default function AdminPendingOrderPage() {
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
                           {order.is_expired ? "EXPIRED" : "PENDING"}
                         </span>
-                        <span
-                          className={[
-                            "rounded-full px-3 py-1 text-xs font-bold",
-                            order.qris_uploaded
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-slate-100 text-slate-700",
-                          ].join(" ")}
-                        >
-                          QRIS {order.qris_uploaded ? "Uploaded" : "Belum Upload"}
-                        </span>
-                        <span
-                          className={[
-                            "rounded-full px-3 py-1 text-xs font-bold",
-                            order.payment_confirmed_by_user
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-slate-100 text-slate-700",
-                          ].join(" ")}
-                        >
-                          {order.payment_confirmed_by_user
-                            ? "User Sudah Konfirmasi"
-                            : "User Belum Konfirmasi"}
-                        </span>
+                        {!isCash ? (
+                          <span
+                            className={[
+                              "rounded-full px-3 py-1 text-xs font-bold",
+                              isPaymentAssetReady
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-slate-100 text-slate-700",
+                            ].join(" ")}
+                          >
+                            {isQris
+                              ? `QRIS ${isPaymentAssetReady ? "Uploaded" : "Belum Upload"}`
+                              : `Kode Minimarket ${
+                                  isPaymentAssetReady ? "Uploaded" : "Belum Upload"
+                                }`}
+                          </span>
+                        ) : null}
+                        {!isCash ? (
+                          <span
+                            className={[
+                              "rounded-full px-3 py-1 text-xs font-bold",
+                              order.payment_confirmed_by_user
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-slate-100 text-slate-700",
+                            ].join(" ")}
+                          >
+                            {order.payment_confirmed_by_user
+                              ? "User Sudah Konfirmasi"
+                              : "User Belum Konfirmasi"}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
+                            Cash Manual
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -487,21 +586,25 @@ export default function AdminPendingOrderPage() {
                         <span className="text-slate-500">WA User: </span>
                         <strong>{order.contact_whatsapp}</strong>
                       </p>
-                      <p>
-                        <span className="text-slate-500">Batas Bayar: </span>
-                        <strong>{formatDate(order.expires_at)}</strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">Konfirmasi User: </span>
-                        <strong>
-                          {order.payment_confirmed_at
-                            ? formatDate(order.payment_confirmed_at)
-                            : "-"}
-                        </strong>
-                      </p>
+                      {!isCash ? (
+                        <p>
+                          <span className="text-slate-500">Batas Bayar: </span>
+                          <strong>{formatDate(order.expires_at)}</strong>
+                        </p>
+                      ) : null}
+                      {!isCash ? (
+                        <p>
+                          <span className="text-slate-500">Konfirmasi User: </span>
+                          <strong>
+                            {order.payment_confirmed_at
+                              ? formatDate(order.payment_confirmed_at)
+                              : "-"}
+                          </strong>
+                        </p>
+                      ) : null}
                     </div>
 
-                    {order.qris_image_url ? (
+                    {isQris && order.qris_image_url ? (
                       <div className="mt-4">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -511,46 +614,83 @@ export default function AdminPendingOrderPage() {
                         />
                       </div>
                     ) : null}
+                    {isMinimarket ? (
+                      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="text-slate-500">Kode Pembayaran: </span>
+                        <strong>{order.minimarket_payment_code || "-"}</strong>
+                      </div>
+                    ) : null}
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      {order.qris_uploaded ? (
-                        <span className="inline-flex items-center rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white">
-                          <svg
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                            className="h-[18px] w-[18px]"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                      {isQris ? (
+                        order.qris_uploaded ? (
+                          <span className="inline-flex items-center rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white">
+                            <svg
+                              viewBox="0 0 24 24"
+                              aria-hidden="true"
+                              className="h-[18px] w-[18px]"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M5 12.5 9.2 16.7 19 7.3" />
+                            </svg>
+                          </span>
+                        ) : (
+                          <label
+                            className={[
+                              "inline-flex cursor-pointer items-center rounded-lg bg-[#293275] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f265f]",
+                              isBusy ? "pointer-events-none opacity-60" : "",
+                            ].join(" ")}
                           >
-                            <path d="M5 12.5 9.2 16.7 19 7.3" />
-                          </svg>
-                        </span>
-                      ) : (
-                        <label
-                          className={[
-                            "inline-flex cursor-pointer items-center rounded-lg bg-[#293275] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f265f]",
-                            isBusy ? "pointer-events-none opacity-60" : "",
-                          ].join(" ")}
-                        >
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="sr-only"
+                              disabled={isBusy}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] ?? null;
+                                void handleUploadQris(order.order_number, file);
+                                event.currentTarget.value = "";
+                              }}
+                            />
+                            {isBusy && actionType === "upload"
+                              ? "Upload..."
+                              : "Upload QRIS"}
+                          </label>
+                        )
+                      ) : null}
+                      {isMinimarket ? (
+                        <div className="flex flex-wrap items-center gap-2">
                           <input
-                            type="file"
-                            accept="image/*"
-                            className="sr-only"
+                            type="text"
+                            value={minimarketCodeInput[order.order_number] ?? ""}
+                            onChange={(event) =>
+                              setMinimarketCodeInput((current) => ({
+                                ...current,
+                                [order.order_number]: event.target.value,
+                              }))
+                            }
+                            placeholder="Kode unik minimarket"
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
                             disabled={isBusy}
-                            onChange={(event) => {
-                              const file = event.target.files?.[0] ?? null;
-                              void handleUploadQris(order.order_number, file);
-                              event.currentTarget.value = "";
-                            }}
                           />
-                          {isBusy && actionType === "upload"
-                            ? "Upload..."
-                            : "Upload QRIS"}
-                        </label>
-                      )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void handleSaveMinimarketCode(order.order_number)
+                            }
+                            disabled={isBusy}
+                            className="rounded-lg bg-[#293275] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f265f] disabled:cursor-not-allowed disabled:bg-slate-300"
+                          >
+                            {isBusy && actionType === "upload-minimarket"
+                              ? "Simpan..."
+                              : "Simpan Kode"}
+                          </button>
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => setPendingCancelOrderCode(order.order_number)}
@@ -562,11 +702,7 @@ export default function AdminPendingOrderPage() {
                       <button
                         type="button"
                         onClick={() => void handleComplete(order.order_number)}
-                        disabled={
-                          isBusy ||
-                          !order.payment_confirmed_by_user ||
-                          order.is_expired
-                        }
+                        disabled={!canComplete}
                         className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
                       >
                         {isBusy && actionType === "complete"

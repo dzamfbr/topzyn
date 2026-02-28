@@ -32,6 +32,8 @@ type PaymentMethod = {
   logo_url: string;
 };
 
+type PaymentCategory = "qris" | "cod" | "minimarket";
+
 type CatalogResponse = {
   status: "ok" | "error";
   message?: string;
@@ -57,9 +59,18 @@ const WDP_NOTICE_KEY = "topzyn_hide_wdp_notice";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
-  { label: "Leaderboard", href: "#" },
-  { label: "Riwayat", href: "/riwayat" },
-  { label: "Kalkulator", href: "#" },
+  { label: "Leaderboard", href: "/leaderboard" },
+  { label: "History", href: "/riwayat" },
+  { label: "Kalkulator", href: "/kalkulator" },
+];
+
+const PAYMENT_CATEGORY_OPTIONS: Array<{
+  key: PaymentCategory;
+  label: string;
+}> = [
+  { key: "qris", label: "QRIS" },
+  { key: "cod", label: "COD" },
+  { key: "minimarket", label: "Minimarket" },
 ];
 
 function formatRupiah(value: number): string {
@@ -72,6 +83,21 @@ function normalizeWhatsapp(value: string): string {
 
 function isWdpItem(name: string): boolean {
   return /weekly\s*diamond\s*pass|wdp/i.test(name);
+}
+
+function getPaymentCategory(method: PaymentMethod): PaymentCategory {
+  const lookup = `${method.code} ${method.name}`.toUpperCase();
+  if (
+    lookup.includes("MINIMARKET") ||
+    lookup.includes("ALFA") ||
+    lookup.includes("INDO")
+  ) {
+    return "minimarket";
+  }
+  if (lookup.includes("COD") || lookup.includes("CASH")) {
+    return "cod";
+  }
+  return "qris";
 }
 
 function FallbackImage({
@@ -176,10 +202,11 @@ function CalculatorIcon({ className }: { className?: string }) {
 
 function UserIcon({ className }: { className?: string }) {
   return (
-    <Icon className={className}>
-      <circle cx="12" cy="8.2" r="3.2" />
-      <path d="M5.8 19a6.2 6.2 0 0 1 12.4 0" />
-    </Icon>
+    <span
+      className={["iconify inline-block", className ?? ""].join(" ").trim()}
+      data-icon="mdi:account-circle-outline"
+      aria-hidden="true"
+    />
   );
 }
 
@@ -243,6 +270,8 @@ export default function MobileLegendsProductPage() {
   const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(
     null,
   );
+  const [activePaymentCategory, setActivePaymentCategory] =
+    useState<PaymentCategory>("qris");
   const [promoState, setPromoState] = useState<{
     code: string | null;
     discountAmount: number;
@@ -277,6 +306,22 @@ export default function MobileLegendsProductPage() {
       paymentMethods.find((method) => method.id === selectedPaymentId) ?? null,
     [paymentMethods, selectedPaymentId],
   );
+  const groupedPaymentMethods = useMemo(() => {
+    const grouped: Record<PaymentCategory, PaymentMethod[]> = {
+      qris: [],
+      cod: [],
+      minimarket: [],
+    };
+    paymentMethods.forEach((method) => {
+      grouped[getPaymentCategory(method)].push(method);
+    });
+    return grouped;
+  }, [paymentMethods]);
+  const activePaymentMethods = groupedPaymentMethods[activePaymentCategory];
+  const activePaymentCategoryLabel =
+    PAYMENT_CATEGORY_OPTIONS.find(
+      (option) => option.key === activePaymentCategory,
+    )?.label ?? "Metode";
   const groupedItems = useMemo(() => {
     const regular: MlbbItem[] = [];
     const wdp: MlbbItem[] = [];
@@ -349,7 +394,21 @@ export default function MobileLegendsProductPage() {
         setItems(nextItems);
         setPaymentMethods(nextMethods);
         if (nextMethods.length > 0) {
-          setSelectedPaymentId(nextMethods[0].id);
+          const qrisMethod = nextMethods.find(
+            (method) => getPaymentCategory(method) === "qris",
+          );
+          const codMethod = nextMethods.find(
+            (method) => getPaymentCategory(method) === "cod",
+          );
+          const minimarketMethod = nextMethods.find(
+            (method) => getPaymentCategory(method) === "minimarket",
+          );
+          const initialMethod =
+            qrisMethod ?? codMethod ?? minimarketMethod ?? nextMethods[0];
+          setActivePaymentCategory(getPaymentCategory(initialMethod));
+          setSelectedPaymentId(initialMethod.id);
+        } else {
+          setSelectedPaymentId(null);
         }
       } catch (error) {
         if (!disposed) {
@@ -496,6 +555,21 @@ export default function MobileLegendsProductPage() {
     topNoticeRemoveTimerRef.current = setTimeout(() => {
       setTopNotice(null);
     }, 5000);
+  };
+
+  const handleSelectPaymentCategory = (category: PaymentCategory) => {
+    setActivePaymentCategory(category);
+    const methodsInCategory = groupedPaymentMethods[category];
+    if (methodsInCategory.length === 0) {
+      setSelectedPaymentId(null);
+      return;
+    }
+    const isCurrentMethodInCategory = methodsInCategory.some(
+      (method) => method.id === selectedPaymentId,
+    );
+    if (!isCurrentMethodInCategory) {
+      setSelectedPaymentId(methodsInCategory[0].id);
+    }
   };
 
   const validateForm = (): boolean => {
@@ -702,7 +776,7 @@ export default function MobileLegendsProductPage() {
                     <HomeIcon className="h-4 w-4" />
                   ) : item.label === "Leaderboard" ? (
                     <ChartIcon className="h-4 w-4" />
-                  ) : item.label === "Riwayat" ? (
+                  ) : item.label === "History" ? (
                     <HistoryIcon className="h-4 w-4" />
                   ) : (
                     <CalculatorIcon className="h-4 w-4" />
@@ -721,13 +795,9 @@ export default function MobileLegendsProductPage() {
                   type="button"
                   aria-expanded={isDropdownOpen}
                   onClick={() => setIsDropdownOpen((value) => !value)}
-                  className="hidden items-center gap-2 rounded-full border border-white/20 px-2 py-1 text-white transition hover:bg-white/10 md:inline-flex"
+                  className="hidden items-center gap-2 rounded-full px-2 py-1 text-white transition hover:bg-white/10 md:inline-flex"
                 >
-                  <FallbackImage
-                    src="/images/user_icon_topzyn.png"
-                    alt="Avatar"
-                    className="h-9 w-9 rounded-full border border-white object-cover"
-                  />
+                  <UserIcon className="h-9 w-9" />
                   <span className="text-sm font-bold">{user.username}</span>
                   <ChevronDownIcon
                     className={[
@@ -853,7 +923,7 @@ export default function MobileLegendsProductPage() {
         </section>
 
         <section className="mx-auto mt-5 grid max-w-6xl gap-4 pb-8 sm:mt-6 sm:gap-6 sm:pb-10 lg:grid-cols-[minmax(260px,340px)_1fr] lg:items-start">
-          <aside className="h-fit px-1 lg:sticky lg:top-[146px]">
+          <aside className="h-fit px-1">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#ff711c]" />
               <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
@@ -863,7 +933,7 @@ export default function MobileLegendsProductPage() {
             <ol className="mt-3 list-decimal space-y-2.5 pl-5 text-xs leading-relaxed text-slate-600 sm:text-sm">
               <li>Masukkan User ID dan Server dengan benar.</li>
               <li>Pilih nominal diamonds yang kamu butuhkan.</li>
-              <li>Pilih metode pembayaran QRIS.</li>
+              <li>Pilih metode pembayaran yang tersedia.</li>
               <li>Masukkan nomor WhatsApp aktif.</li>
               <li>Klik Order Sekarang lalu selesaikan pembayaran.</li>
             </ol>
@@ -963,32 +1033,55 @@ export default function MobileLegendsProductPage() {
                 3. Metode Pembayaran
               </h3>
               <p className="text-xs text-slate-500 sm:text-sm">
-                Saat ini yang tersedia hanya QRIS.
+                Pilih kategori pembayaran dulu, lalu pilih metode yang kamu mau.
               </p>
-              <div className="mt-4 grid gap-2.5 sm:grid-cols-2 sm:gap-3">
-                {paymentMethods.map((method) => (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {PAYMENT_CATEGORY_OPTIONS.map((option) => (
                   <button
-                    key={method.id}
+                    key={option.key}
                     type="button"
-                    onClick={() => setSelectedPaymentId(method.id)}
+                    onClick={() => handleSelectPaymentCategory(option.key)}
                     className={[
-                      "group relative overflow-hidden flex items-center gap-2 rounded-lg border p-2 text-left transition-all duration-300 sm:gap-3 sm:rounded-xl sm:p-3",
-                      selectedPaymentId === method.id
-                        ? "border-[#293275] bg-[#eef1ff] ring-2 ring-[#293275]/20 shadow-[0_10px_24px_rgba(41,50,117,0.18)]"
-                        : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-[#293275]/40 hover:shadow-[0_10px_24px_rgba(16,24,40,0.12)]",
+                      "rounded-lg border px-2 py-2 text-[11px] font-bold transition sm:text-xs",
+                      activePaymentCategory === option.key
+                        ? "border-[#293275] bg-[#293275] text-white shadow-[0_8px_18px_rgba(41,50,117,0.28)]"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-[#293275]/40 hover:text-[#293275]",
                     ].join(" ")}
                   >
-                    <span className="pointer-events-none absolute -right-8 -top-8 h-16 w-16 rounded-full bg-[#293275]/10 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
-                    <FallbackImage
-                      src={method.logo_url}
-                      alt={method.name}
-                      className="relative h-6 w-6 object-contain sm:h-8 sm:w-8"
-                    />
-                    <span className="relative text-[11px] font-bold sm:text-sm">
-                      {method.name}
-                    </span>
+                    {option.label}
                   </button>
                 ))}
+              </div>
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+                {activePaymentMethods.length > 0 ? (
+                  activePaymentMethods.map((method) => (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setSelectedPaymentId(method.id)}
+                      className={[
+                        "group relative overflow-hidden flex items-center gap-2 rounded-lg border p-2 text-left transition-all duration-300 sm:gap-3 sm:rounded-xl sm:p-3",
+                        selectedPaymentId === method.id
+                          ? "border-[#293275] bg-[#eef1ff] ring-2 ring-[#293275]/20 shadow-[0_10px_24px_rgba(41,50,117,0.18)]"
+                          : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-[#293275]/40 hover:shadow-[0_10px_24px_rgba(16,24,40,0.12)]",
+                      ].join(" ")}
+                    >
+                      <span className="pointer-events-none absolute -right-8 -top-8 h-16 w-16 rounded-full bg-[#293275]/10 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
+                      <FallbackImage
+                        src={method.logo_url}
+                        alt={method.name}
+                        className="relative h-6 w-6 object-contain sm:h-8 sm:w-8"
+                      />
+                      <span className="relative text-[11px] font-bold sm:text-sm">
+                        {method.name}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 sm:text-xs">
+                    Metode {activePaymentCategoryLabel} belum tersedia.
+                  </div>
+                )}
               </div>
             </section>
             <section className={sectionCardClass}>
@@ -1090,7 +1183,7 @@ export default function MobileLegendsProductPage() {
           <span>Home</span>
         </Link>
         <Link
-          href="#"
+          href="/leaderboard"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <ChartIcon className="h-[22px] w-[22px]" />
@@ -1101,10 +1194,10 @@ export default function MobileLegendsProductPage() {
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
-          <span>Riwayat</span>
+          <span>History</span>
         </Link>
         <Link
-          href="#"
+          href="/kalkulator"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <CalculatorIcon className="h-[22px] w-[22px]" />
@@ -1268,7 +1361,7 @@ export default function MobileLegendsProductPage() {
       <footer className="mt-16 bg-white text-white md:mt-20">
         <div className="w-full overflow-hidden">
           <FallbackImage
-            src="/images/footer_banner_raypoint.png"
+            src="/images/footer_banner_topzyn.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
           />
@@ -1305,7 +1398,7 @@ export default function MobileLegendsProductPage() {
                   Daftar
                 </Link>
                 <Link
-                  href="#"
+                  href="/kalkulator"
                   className="mb-2 block text-sm text-white transition hover:translate-x-1 md:text-base"
                 >
                   Kalkulator
@@ -1402,3 +1495,4 @@ export default function MobileLegendsProductPage() {
     </div>
   );
 }
+

@@ -18,7 +18,28 @@ body {
   min-height: 100vh;
   background: #ffffff;
   color: #111111;
-  font-family: "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+  font-family:
+    var(--font-body),
+    "Segoe UI",
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family:
+    var(--font-display),
+    "Segoe UI",
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif;
 }
 
 .font-poppins {

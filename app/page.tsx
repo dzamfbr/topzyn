@@ -31,9 +31,9 @@ const BANNER_LOOP = [...BANNERS, BANNERS[0]];
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
-  { label: "Leaderboard", href: "#" },
-  { label: "Riwayat", href: "/riwayat" },
-  { label: "Kalkulator", href: "#" },
+  { label: "Leaderboard", href: "/leaderboard" },
+  { label: "History", href: "/riwayat" },
+  { label: "Kalkulator", href: "/kalkulator" },
 ];
 
 const DESKTOP_INITIAL_ROWS = 2;
@@ -146,10 +146,11 @@ function CalculatorIcon({ className }: { className?: string }) {
 
 function UserIcon({ className }: { className?: string }) {
   return (
-    <Icon className={className}>
-      <circle cx="12" cy="8.2" r="3.2" />
-      <path d="M5.8 19a6.2 6.2 0 0 1 12.4 0" />
-    </Icon>
+    <span
+      className={["iconify inline-block", className ?? ""].join(" ").trim()}
+      data-icon="mdi:account-circle-outline"
+      aria-hidden="true"
+    />
   );
 }
 
@@ -215,10 +216,13 @@ function ProfileDropdownMenu({
           compact ? "gap-2.5 p-2" : "gap-3 p-2",
         ].join(" ")}
       >
-        <FallbackImage
-          src="/images/user_icon_topzyn.png"
-          alt="Avatar"
-          className={compact ? "h-9 w-9 rounded-full object-cover" : "h-11 w-11 rounded-full object-cover"}
+        <span
+          className={[
+            "iconify inline-block text-[#293275]",
+            compact ? "h-9 w-9" : "h-11 w-11",
+          ].join(" ")}
+          data-icon="mdi:account-circle"
+          aria-hidden="true"
         />
         <div className="min-w-0">
           <strong
@@ -529,7 +533,6 @@ export default function Home() {
     } catch {
       // Tetap lanjut redirect supaya state user lokal ter-reset.
     }
-
     window.location.href = "/?logout=1";
   };
 
@@ -568,7 +571,7 @@ export default function Home() {
                     <HomeIcon className="h-4 w-4" />
                   ) : item.label === "Leaderboard" ? (
                     <ChartIcon className="h-4 w-4" />
-                  ) : item.label === "Riwayat" ? (
+                  ) : item.label === "History" ? (
                     <HistoryIcon className="h-4 w-4" />
                   ) : (
                     <CalculatorIcon className="h-4 w-4" />
@@ -587,13 +590,9 @@ export default function Home() {
                   type="button"
                   aria-expanded={isDropdownOpen}
                   onClick={() => setIsDropdownOpen((value) => !value)}
-                  className="hidden items-center gap-2 rounded-full border border-white/20 px-2 py-1 text-white transition hover:bg-white/10 md:flex"
+                  className="hidden items-center gap-2 rounded-full px-2 py-1 text-white transition hover:bg-white/10 md:flex"
                 >
-                  <FallbackImage
-                    src="/images/user_icon_topzyn.png"
-                    alt="Avatar"
-                    className="h-9 w-9 rounded-full border border-white object-cover"
-                  />
+                  <UserIcon className="h-9 w-9" />
                   <span className="font-poppins text-sm font-bold">
                     {user.username}
                   </span>
@@ -668,7 +667,7 @@ export default function Home() {
           <span>Home</span>
         </Link>
         <Link
-          href="#"
+          href="/leaderboard"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <ChartIcon className="h-[22px] w-[22px]" />
@@ -679,10 +678,10 @@ export default function Home() {
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
-          <span>Riwayat</span>
+          <span>History</span>
         </Link>
         <Link
-          href="#"
+          href="/kalkulator"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <CalculatorIcon className="h-[22px] w-[22px]" />
@@ -855,9 +854,9 @@ export default function Home() {
             <Link
               key={item.name}
               href={item.link}
-              className="block no-underline"
+              className="cards block no-underline [perspective:500px]"
             >
-              <article className="group relative overflow-hidden rounded-xl bg-white shadow-sm md:rounded-2xl">
+              <article className="card group relative overflow-hidden rounded-xl bg-white shadow-sm [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-[transform,box-shadow] motion-safe:duration-300 motion-safe:ease-out hover:shadow-lg hover:[transform:translateZ(2.5px)_rotateX(2.5deg)_rotateY(2.5deg)_scale(1.03)] md:rounded-2xl">
                 <FallbackImage
                   src={item.popularImage ?? item.image}
                   alt={item.name}
@@ -930,7 +929,7 @@ export default function Home() {
             >
               <figure
                 className={[
-                  "card group relative overflow-hidden rounded-md border-2 border-zinc-600 bg-[#16161d] [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out hover:[transform:translateZ(6px)_rotateX(8deg)_rotateY(8deg)]",
+                  "card group relative overflow-hidden rounded-md border-2 border-zinc-600 bg-[#16161d] [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-[transform,box-shadow] motion-safe:duration-300 motion-safe:ease-out hover:shadow-lg hover:[transform:translateZ(2.5px)_rotateX(2.5deg)_rotateY(2.5deg)_scale(1.03)]",
                   productAnimationMode === "tab" ||
                   (productAnimationMode === "loadMore" &&
                     index >= loadMoreStartIndex)
@@ -989,7 +988,7 @@ export default function Home() {
       >
         <div className="w-full overflow-hidden">
           <FallbackImage
-            src="/images/footer_banner_raypoint.png"
+            src="/images/footer_banner_topzyn.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
             fetchPriority="low"
@@ -1027,7 +1026,7 @@ export default function Home() {
                   Daftar
                 </Link>
                 <Link
-                  href="#"
+                  href="/kalkulator"
                   className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
                 >
                   Kalkulator
@@ -1136,3 +1135,4 @@ export default function Home() {
     </div>
   );
 }
+

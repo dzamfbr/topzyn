@@ -19,11 +19,6 @@ type MeResponse = {
   user: UserSession;
 };
 
-type InvoiceLookupResponse = {
-  status: "ok" | "error";
-  message?: string;
-};
-
 type NoticeState = {
   tone: TopzynNoticeTone;
   title: string;
@@ -37,8 +32,41 @@ const NAV_LINKS = [
   { label: "Kalkulator", href: "/kalkulator" },
 ];
 
-function normalizeTransactionCode(value: string): string {
-  return value.toUpperCase().replace(/\s+/g, "");
+type CalculatorErrors = {
+  totalMatches?: string;
+  currentWinRate?: string;
+  targetWinRate?: string;
+};
+
+function calculateNeededWins(
+  totalMatches: number,
+  currentWinRate: number,
+  targetWinRate: number,
+): number {
+  const currentWins = (currentWinRate / 100) * totalMatches;
+  if (targetWinRate <= currentWinRate) {
+    return 0;
+  }
+  if (targetWinRate >= 100) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const required =
+    ((targetWinRate / 100) * totalMatches - currentWins) /
+    (1 - targetWinRate / 100);
+  return Math.max(0, Math.ceil(required));
+}
+
+function sanitizeIntegerInput(value: string): string {
+  return value.replace(/[^\d]/g, "");
+}
+
+function sanitizeDecimalInput(value: string): string {
+  const normalized = value.replace(/,/g, ".").replace(/[^\d.]/g, "");
+  const [integerPart, ...decimalParts] = normalized.split(".");
+  if (decimalParts.length === 0) {
+    return integerPart;
+  }
+  return `${integerPart}.${decimalParts.join("")}`;
 }
 
 function FallbackImage({
@@ -190,22 +218,26 @@ function LogoutIcon({ className }: { className?: string }) {
   );
 }
 
-export default function HistoryPage() {
+export default function KalkulatorPage() {
   const [user, setUser] = useState<UserSession>(null);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [transactionCode, setTransactionCode] = useState("");
-  const [isChecking, setIsChecking] = useState(false);
+  const [totalMatches, setTotalMatches] = useState("");
+  const [currentWinRate, setCurrentWinRate] = useState("");
+  const [targetWinRate, setTargetWinRate] = useState("");
+  const [resultText, setResultText] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<CalculatorErrors>({});
   const [notice, setNotice] = useState<NoticeState>(null);
   const desktopToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
   const desktopDropdownRef = useRef<HTMLDivElement | null>(null);
   const mobileDropdownRef = useRef<HTMLDivElement | null>(null);
-  const normalizedTransactionCode = normalizeTransactionCode(transactionCode);
-  const canCheckTransaction =
-    normalizedTransactionCode.length > 0 && !isChecking;
+  const canCalculate =
+    totalMatches.trim() !== "" &&
+    currentWinRate.trim() !== "" &&
+    targetWinRate.trim() !== "";
 
   useEffect(() => {
     let disposed = false;
@@ -314,50 +346,75 @@ export default function HistoryPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isChecking) {
+    const errors: CalculatorErrors = {};
+
+    if (!totalMatches.trim()) {
+      errors.totalMatches = "Total pertandingan wajib diisi";
+    }
+    if (!currentWinRate.trim()) {
+      errors.currentWinRate = "Win rate saat ini wajib diisi";
+    }
+    if (!targetWinRate.trim()) {
+      errors.targetWinRate = "Target win rate wajib diisi";
+    }
+
+    const parsedTotalMatches = Number(totalMatches);
+    const parsedCurrentWinRate = Number(currentWinRate);
+    const parsedTargetWinRate = Number(targetWinRate);
+
+    if (
+      totalMatches.trim() &&
+      (!Number.isFinite(parsedTotalMatches) || parsedTotalMatches <= 0)
+    ) {
+      errors.totalMatches = "Total pertandingan harus angka lebih dari 0";
+    }
+    if (
+      currentWinRate.trim() &&
+      (!Number.isFinite(parsedCurrentWinRate) ||
+        parsedCurrentWinRate < 0 ||
+        parsedCurrentWinRate > 100)
+    ) {
+      errors.currentWinRate = "Win rate saat ini harus di antara 0 - 100";
+    }
+    if (
+      targetWinRate.trim() &&
+      (!Number.isFinite(parsedTargetWinRate) ||
+        parsedTargetWinRate <= 0 ||
+        parsedTargetWinRate > 100)
+    ) {
+      errors.targetWinRate = "Target win rate harus di antara 1 - 100";
+    }
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      setResultText("");
       return;
     }
 
-    const normalized = normalizedTransactionCode;
-    setTransactionCode(normalized);
+    const neededWins = calculateNeededWins(
+      parsedTotalMatches,
+      parsedCurrentWinRate,
+      parsedTargetWinRate,
+    );
 
-    if (!normalized) {
-      setNotice({
-        tone: "error",
-        title: "Kode Belum Diisi",
-        message: "Masukkan kode transaksi dulu untuk cek history.",
-      });
-      return;
-    }
-
-    setIsChecking(true);
-    try {
-      const response = await fetch(
-        `/api/mlbb/invoice/${encodeURIComponent(normalized)}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        },
+    if (!Number.isFinite(neededWins)) {
+      setResultText(
+        "Kamu butuh kemenangan tanpa kalah dalam jumlah tak terbatas untuk mencapai win rate 100%.",
       );
-      const data = (await response.json()) as InvoiceLookupResponse;
-
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Kode transaksi tidak ditemukan.");
-      }
-
-      window.location.href = `/invoice/${encodeURIComponent(normalized)}`;
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        title: "Transaksi Tidak Ditemukan",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Kode transaksi tidak valid atau belum tersedia.",
-      });
-    } finally {
-      setIsChecking(false);
+      return;
     }
+
+    if (neededWins <= 0) {
+      setResultText(
+        `Win rate kamu saat ini sudah mencapai target ${parsedTargetWinRate.toFixed(0)}%.`,
+      );
+      return;
+    }
+
+    setResultText(
+      `Kamu butuh ${neededWins} kemenangan tanpa kalah untuk mencapai win rate ${parsedTargetWinRate.toFixed(0)}%.`,
+    );
   };
 
   return (
@@ -393,7 +450,7 @@ export default function HistoryPage() {
                   href={item.href}
                   className={[
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-base font-semibold transition lg:text-lg",
-                    item.label === "History"
+                    item.label === "Kalkulator"
                       ? "text-[#ff711c]"
                       : "text-white hover:text-[#ff711c]",
                   ].join(" ")}
@@ -495,8 +552,8 @@ export default function HistoryPage() {
         <div className="flex h-[34px] items-center overflow-hidden border-t border-white/40 bg-[#293275] md:h-10">
           <div className="inline-block whitespace-nowrap pl-[100%] [animation:runningText_15s_linear_infinite]">
             <span className="inline-block px-5 text-sm font-bold text-white md:px-7 md:text-base">
-              Cek history transaksi kamu kapan saja di TopZyn dengan kode
-              transaksi.
+              Gunakan Kalkulator Win Rate TopZyn untuk tahu berapa match menang
+              tanpa kalah yang kamu butuhkan.
             </span>
           </div>
         </div>
@@ -524,14 +581,14 @@ export default function HistoryPage() {
         </Link>
         <Link
           href="/riwayat"
-          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-[#293275]"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
           <span>History</span>
         </Link>
         <Link
           href="/kalkulator"
-          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
+          className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-[#293275]"
         >
           <CalculatorIcon className="h-[22px] w-[22px]" />
           <span>Kalkulator</span>
@@ -638,52 +695,128 @@ export default function HistoryPage() {
 
       <section className="px-4 py-8 md:py-12">
         <div className="mx-auto w-full max-w-lg">
-          <div className="rounded-3xl border border-[#293275]/15 bg-[linear-gradient(180deg,#f6f8ff_0%,#ffffff_55%)] p-5 shadow-[0_24px_60px_rgba(41,50,117,0.15)] backdrop-blur sm:p-7">
+          <div className="rounded-3xl border border-[#293275]/15 bg-[linear-gradient(180deg,#f8faff_0%,#ffffff_55%)] p-5 text-[#101828] shadow-[0_24px_60px_rgba(41,50,117,0.16)] backdrop-blur sm:p-7">
             <div className="mb-6 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/web_logo_topzyn.png"
                 alt="TopZyn"
-                className="mx-auto mb-3 h-auto w-[68px]"
+                className="mx-auto mb-4 h-auto w-[96px]"
               />
-              <h1 className="text-2xl font-extrabold text-[#293275] sm:text-[28px]">
-                Cek History Transaksi
+              <h1 className="text-3xl font-extrabold text-[#293275] sm:text-[42px]">
+                Kalkulator Win Rate
               </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Masukkan kode transaksi kamu untuk melihat invoice.
+              <p className="mx-auto mt-3 max-w-md text-sm text-slate-600 sm:text-base">
+                Digunakan untuk menghitung total jumlah pertandingan yang harus
+                diambil untuk mencapai target tingkat kemenangan yang
+                diinginkan.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label
-                  htmlFor="transactionCode"
-                  className="mb-2 block text-sm font-semibold text-slate-700"
+                  htmlFor="totalMatches"
+                  className="mb-2 block text-sm font-semibold text-slate-800 sm:text-base"
                 >
-                  Kode Transaksi
+                  Total Pertandingan Kamu Saat Ini
                 </label>
                 <input
-                  id="transactionCode"
+                  id="totalMatches"
                   type="text"
-                  placeholder="Contoh: TZ2026-XXXXXXXXXX"
+                  inputMode="numeric"
+                  placeholder="Contoh: 200"
                   autoComplete="off"
-                  value={transactionCode}
-                  onChange={(event) =>
-                    setTransactionCode(
-                      normalizeTransactionCode(event.target.value),
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-300 px-3.5 py-3 text-sm uppercase outline-none transition focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
+                  value={totalMatches}
+                  onChange={(event) => {
+                    setTotalMatches(sanitizeIntegerInput(event.target.value));
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      totalMatches: undefined,
+                    }));
+                  }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/20"
                 />
+                {fieldErrors.totalMatches ? (
+                  <p className="mt-2 text-xs text-red-600 sm:text-sm">
+                    {fieldErrors.totalMatches}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="currentWinRate"
+                  className="mb-2 block text-sm font-semibold text-slate-800 sm:text-base"
+                >
+                  Total Win Rate Kamu Saat Ini
+                </label>
+                <input
+                  id="currentWinRate"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Contoh: 50"
+                  autoComplete="off"
+                  value={currentWinRate}
+                  onChange={(event) => {
+                    setCurrentWinRate(sanitizeDecimalInput(event.target.value));
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      currentWinRate: undefined,
+                    }));
+                  }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/20"
+                />
+                {fieldErrors.currentWinRate ? (
+                  <p className="mt-2 text-xs text-red-600 sm:text-sm">
+                    {fieldErrors.currentWinRate}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label
+                  htmlFor="targetWinRate"
+                  className="mb-2 block text-sm font-semibold text-slate-800 sm:text-base"
+                >
+                  Win Rate Total yang Kamu Inginkan
+                </label>
+                <input
+                  id="targetWinRate"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Contoh: 90"
+                  autoComplete="off"
+                  value={targetWinRate}
+                  onChange={(event) => {
+                    setTargetWinRate(sanitizeDecimalInput(event.target.value));
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      targetWinRate: undefined,
+                    }));
+                  }}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/20"
+                />
+                {fieldErrors.targetWinRate ? (
+                  <p className="mt-2 text-xs text-red-600 sm:text-sm">
+                    {fieldErrors.targetWinRate}
+                  </p>
+                ) : null}
               </div>
 
               <button
                 type="submit"
-                disabled={!canCheckTransaction}
-                className="w-full rounded-xl bg-[#293275] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#1f265f] disabled:cursor-not-allowed disabled:bg-slate-400"
+                disabled={!canCalculate}
+                className="w-full rounded-xl bg-[#ff711c] px-4 py-3 text-base font-bold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:text-slate-200"
               >
-                {isChecking ? "Mengecek..." : "Cek Transaksi"}
+                Hitung
               </button>
+
+              {resultText ? (
+                <p className="pt-2 text-center text-sm font-bold text-[#293275] sm:text-base">
+                  {resultText}
+                </p>
+              ) : null}
             </form>
           </div>
         </div>

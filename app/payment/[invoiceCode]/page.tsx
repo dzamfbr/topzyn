@@ -11,8 +11,13 @@ type PaymentResponse = {
     order_number: string;
     item_name?: string;
     total_amount?: number;
+    payment_method_code?: string;
+    payment_method_name?: string;
+    payment_kind?: "qris" | "cash" | "minimarket";
     qris_image_url: string | null;
     qris_uploaded: boolean;
+    minimarket_payment_code: string | null;
+    minimarket_code_uploaded: boolean;
     payment_confirmed_by_user: boolean;
     payment_confirmed_at: string | null;
     created_at: string | null;
@@ -25,6 +30,21 @@ type PaymentResponse = {
 
 function formatRupiah(value: number): string {
   return `Rp ${Math.max(0, Math.floor(value)).toLocaleString("id-ID")}`;
+}
+
+function getPaymentKind(codeOrName: string): "qris" | "cash" | "minimarket" {
+  const value = codeOrName.trim().toUpperCase();
+  if (
+    value.includes("MINIMARKET") ||
+    value.includes("ALFA") ||
+    value.includes("INDO")
+  ) {
+    return "minimarket";
+  }
+  if (value.includes("COD") || value.includes("CASH")) {
+    return "cash";
+  }
+  return "qris";
 }
 
 export default function PaymentPage() {
@@ -122,9 +142,24 @@ export default function PaymentPage() {
     return `${hour}:${minute}:${second}`;
   }, [payment?.expires_at, remainingSeconds]);
 
+  const paymentKind = useMemo(() => {
+    if (!payment) {
+      return "qris" as const;
+    }
+    return (
+      payment.payment_kind ??
+      getPaymentKind(
+        `${payment.payment_method_code ?? ""} ${payment.payment_method_name ?? ""}`,
+      )
+    );
+  }, [payment]);
+
   const canConfirmPayment = Boolean(
     payment &&
-      payment.qris_uploaded &&
+      paymentKind !== "cash" &&
+      (paymentKind === "qris"
+        ? payment.qris_uploaded
+        : payment.minimarket_code_uploaded) &&
       !payment.payment_confirmed_by_user &&
       !payment.is_expired &&
       remainingSeconds > 0,
@@ -134,7 +169,9 @@ export default function PaymentPage() {
     String(payment?.status ?? "").toLowerCase(),
   );
 
-  const canFinish = Boolean(payment?.payment_confirmed_by_user || warningShown || isCompleted);
+  const canFinish = Boolean(
+    payment?.payment_confirmed_by_user || warningShown || isCompleted,
+  );
 
   const goToInvoice = () => {
     if (!orderCode) {
@@ -219,11 +256,23 @@ export default function PaymentPage() {
         onClose={() => setNotice("")}
       />
       <section className="mx-auto max-w-xl">
-        <h1 className="text-center text-2xl font-bold">Pembayaran QRIS</h1>
+        <h1 className="text-center text-2xl font-bold">
+          {paymentKind === "qris"
+            ? "Pembayaran QRIS"
+            : paymentKind === "minimarket"
+              ? "Pembayaran Minimarket"
+              : "Pembayaran Cash"}
+        </h1>
         <p className="mt-1 text-center text-sm text-slate-500">Kode: {payment.order_number}</p>
-        <p className="mt-1 text-center text-sm text-slate-500">
-          Batas pembayaran: <strong>{countdownText}</strong>
-        </p>
+        {paymentKind !== "cash" ? (
+          <p className="mt-1 text-center text-sm text-slate-500">
+            Batas pembayaran: <strong>{countdownText}</strong>
+          </p>
+        ) : (
+          <p className="mt-1 text-center text-sm text-slate-500">
+            Pembayaran cash diproses manual oleh admin.
+          </p>
+        )}
         {warningShown ? (
           <div className="mt-3 overflow-hidden rounded-xl border border-amber-200 bg-[linear-gradient(145deg,#fffaf0_0%,#fff4df_100%)] shadow-[0_8px_22px_rgba(245,158,11,0.14)]">
             <div className="flex items-start gap-2 px-3 py-3 text-sm text-amber-800">
@@ -246,7 +295,7 @@ export default function PaymentPage() {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-700">
               Order ini sudah diproses/selesai. Kamu bisa kembali ke invoice.
             </div>
-          ) : payment.qris_uploaded && payment.qris_image_url ? (
+          ) : paymentKind === "qris" && payment.qris_uploaded && payment.qris_image_url ? (
             <div className="space-y-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -263,6 +312,30 @@ export default function PaymentPage() {
                 </p>
               ) : null}
             </div>
+          ) : paymentKind === "minimarket" && payment.minimarket_code_uploaded ? (
+            <div className="space-y-3">
+              <div className="rounded-xl border border-[#293275]/20 bg-[#eef1ff] px-4 py-4 text-center">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Kode Pembayaran
+                </p>
+                <p className="mt-1 text-2xl font-extrabold tracking-[0.08em] text-[#293275]">
+                  {payment.minimarket_payment_code}
+                </p>
+              </div>
+              {payment.item_name ? (
+                <p className="text-center text-sm text-slate-600">{payment.item_name}</p>
+              ) : null}
+              {typeof payment.total_amount === "number" ? (
+                <p className="text-center text-sm font-semibold text-[#293275]">
+                  Total: {formatRupiah(payment.total_amount)}
+                </p>
+              ) : null}
+            </div>
+          ) : paymentKind === "cash" ? (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-800">
+              Pembayaran cash tidak menggunakan QRIS atau kode. Silakan lanjutkan
+              konfirmasi secara manual dengan admin.
+            </div>
           ) : (
             <div className="rounded-lg border border-amber-200 bg-[linear-gradient(145deg,#fffaf0_0%,#fff4df_100%)] px-3 py-3 text-sm text-amber-800">
               <div className="flex items-start gap-2">
@@ -272,7 +345,11 @@ export default function PaymentPage() {
                     fill="currentColor"
                   />
                 </svg>
-                <span>QRIS belum diupload oleh admin, harap tunggu.</span>
+                <span>
+                  {paymentKind === "minimarket"
+                    ? "Kode pembayaran minimarket belum diupload oleh admin, harap tunggu."
+                    : "QRIS belum diupload oleh admin, harap tunggu."}
+                </span>
               </div>
             </div>
           )}

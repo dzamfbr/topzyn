@@ -19,6 +19,7 @@ export type PendingMlbbOrder = {
   contact_whatsapp: string;
   status: "pending_payment" | "payment_submitted";
   qris_image_data_url: string | null;
+  minimarket_payment_code: string | null;
   payment_confirmed_by_user: boolean;
   payment_confirmed_at: string | null;
   created_at: string;

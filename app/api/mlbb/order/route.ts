@@ -337,6 +337,7 @@ export async function POST(request: NextRequest) {
       contact_whatsapp: contactWhatsapp,
       status: "pending_payment",
       qris_image_data_url: null,
+      minimarket_payment_code: null,
       payment_confirmed_by_user: false,
       payment_confirmed_at: null,
       created_at: new Date().toISOString(),

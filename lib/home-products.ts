@@ -14,9 +14,9 @@ export const DEFAULT_PRODUCTS: Product[] = [
   {
     name: "Mobile Legends",
     publisher: "Moonton",
-    image: "/images/product_mobile_legends_top_up_raypoint.png",
+    image: "/images/product_mobile_legends_top_up_topzyn.png",
     popularImage:
-      "/images/product_horizontal_mobile_legends_top_up_raypoint.png",
+      "/images/product_horizontal_mobile_legends_top_up_topzyn.png",
     link: "/produk/mobile-legends",
     category: ["topup", "ml"],
     isPopular: true,
@@ -24,8 +24,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
   {
     name: "Free Fire",
     publisher: "Garena",
-    image: "/images/product_free_fire_top_up_raypoint.png",
-    popularImage: "/images/product_horizontal_free_fire_top_up_raypoint.png",
+    image: "/images/product_free_fire_top_up_topzyn.png",
+    popularImage: "/images/product_horizontal_free_fire_top_up_topzyn.png",
     link: "/produk/free-fire",
     category: ["topup", "ff"],
     isPopular: true,
@@ -33,8 +33,8 @@ export const DEFAULT_PRODUCTS: Product[] = [
   {
     name: "Magic Chess",
     publisher: "Moonton",
-    image: "/images/product_magic_chess_top_up_raypoint.png",
-    popularImage: "/images/1780x1000.jpg",
+    image: "/images/product_magic_chess_top_up_topzyn.png",
+    popularImage: "/images/product_horizontal_magic_chess_top_up_topzyn.png",
     link: "/produk/magic-chess",
     category: ["topup", "ml"],
     isPopular: true,
@@ -42,7 +42,7 @@ export const DEFAULT_PRODUCTS: Product[] = [
   {
     name: "Free Fire MAX",
     publisher: "Garena",
-    image: "/images/product_free_fire_max_top_up_raypoint.png",
+    image: "/images/product_free_fire_max_top_up_topzyn.png",
     popularImage: "/images/1780x1000.jpg",
     link: "/produk/free-fire-max",
     category: ["topup", "ff"],

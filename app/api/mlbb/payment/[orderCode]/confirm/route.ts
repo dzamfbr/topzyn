@@ -8,6 +8,21 @@ import {
 
 export const runtime = "nodejs";
 
+function getPaymentKind(codeOrName: string): "qris" | "cash" | "minimarket" {
+  const value = codeOrName.trim().toUpperCase();
+  if (
+    value.includes("MINIMARKET") ||
+    value.includes("ALFA") ||
+    value.includes("INDO")
+  ) {
+    return "minimarket";
+  }
+  if (value.includes("COD") || value.includes("CASH")) {
+    return "cash";
+  }
+  return "qris";
+}
+
 export async function POST(
   _request: Request,
   context: { params: Promise<{ orderCode: string }> },
@@ -37,11 +52,35 @@ export async function POST(
       );
     }
 
-    if (!pending.qris_image_data_url) {
+    const paymentKind = getPaymentKind(
+      pending.payment_method_code || pending.payment_method_name,
+    );
+    if (paymentKind === "cash") {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: "Pembayaran cash diproses manual oleh admin.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (paymentKind === "qris" && !pending.qris_image_data_url) {
       return NextResponse.json(
         {
           status: "error",
           message: "QRIS belum diunggah admin. Silakan tunggu beberapa saat.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (paymentKind === "minimarket" && !pending.minimarket_payment_code) {
+      return NextResponse.json(
+        {
+          status: "error",
+          message:
+            "Kode pembayaran minimarket belum diunggah admin. Silakan tunggu beberapa saat.",
         },
         { status: 400 },
       );
@@ -67,4 +106,3 @@ export async function POST(
     );
   }
 }
-

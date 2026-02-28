@@ -9,6 +9,11 @@ import { getDbPool } from "@/lib/tidb";
 
 export const runtime = "nodejs";
 
+function isCashPayment(codeOrName: string): boolean {
+  const value = codeOrName.trim().toUpperCase();
+  return value.includes("COD") || value.includes("CASH");
+}
+
 export async function DELETE(
   _request: Request,
   context: { params: Promise<{ orderCode: string }> },
@@ -69,7 +74,10 @@ export async function POST(
       );
     }
 
-    if (!pending.payment_confirmed_by_user) {
+    const shouldSkipUserConfirmation = isCashPayment(
+      pending.payment_method_code || pending.payment_method_name,
+    );
+    if (!pending.payment_confirmed_by_user && !shouldSkipUserConfirmation) {
       return NextResponse.json(
         {
           status: "error",

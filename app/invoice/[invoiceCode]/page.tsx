@@ -2,7 +2,10 @@
 
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { TopzynNotice, type TopzynNoticeTone } from "@/components/ui/topzyn-notice";
+import {
+  TopzynNotice,
+  type TopzynNoticeTone,
+} from "@/components/ui/topzyn-notice";
 
 type InvoiceResponse = {
   status: "ok" | "error";
@@ -13,6 +16,7 @@ type InvoiceResponse = {
     product: string;
     item: string;
     target: string;
+    payment_method_code?: string;
     payment_method: string;
     total: number;
     payment_status: string;
@@ -166,9 +170,32 @@ export default function InvoicePage() {
     if (!invoice) {
       return false;
     }
+    const paymentCode = String(invoice.payment_method_code ?? "").toUpperCase();
+    const paymentName = String(invoice.payment_method ?? "").toUpperCase();
+    const isCashPayment =
+      paymentCode.includes("COD") ||
+      paymentCode.includes("CASH") ||
+      paymentName.includes("COD") ||
+      paymentName.includes("CASH");
+
     return (
+      isCashPayment ||
       invoice.payment_status_code === "paid" ||
       invoice.transaction_status_code === "done"
+    );
+  }, [invoice]);
+
+  const isCashPayment = useMemo(() => {
+    if (!invoice) {
+      return false;
+    }
+    const paymentCode = String(invoice.payment_method_code ?? "").toUpperCase();
+    const paymentName = String(invoice.payment_method ?? "").toUpperCase();
+    return (
+      paymentCode.includes("COD") ||
+      paymentCode.includes("CASH") ||
+      paymentName.includes("COD") ||
+      paymentName.includes("CASH")
     );
   }, [invoice]);
 
@@ -196,7 +223,12 @@ export default function InvoicePage() {
   };
 
   const handlePayNow = () => {
-    if (!invoice?.pay_route || !invoice.can_pay_now || remainingSeconds <= 0) {
+    if (
+      !invoice?.pay_route ||
+      !invoice.can_pay_now ||
+      remainingSeconds <= 0 ||
+      isCashPayment
+    ) {
       return;
     }
     window.location.href = invoice.pay_route;
@@ -234,7 +266,9 @@ export default function InvoicePage() {
       }, 900);
     } catch (error) {
       setNoticeTone("error");
-      setNotice(error instanceof Error ? error.message : "Gagal membatalkan order.");
+      setNotice(
+        error instanceof Error ? error.message : "Gagal membatalkan order.",
+      );
       setShowCancelModal(false);
     } finally {
       setIsCancelling(false);
@@ -339,7 +373,9 @@ export default function InvoicePage() {
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-slate-500">Produk</span>
-              <strong className="text-sm sm:text-right">{invoice.product}</strong>
+              <strong className="text-sm sm:text-right">
+                {invoice.product}
+              </strong>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
@@ -351,28 +387,34 @@ export default function InvoicePage() {
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-slate-500">ID Tujuan</span>
-              <strong className="text-sm sm:text-right">{invoice.target}</strong>
+              <strong className="text-sm sm:text-right">
+                {invoice.target}
+              </strong>
             </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-slate-500">Payment Method</span>
-              <strong className="text-sm sm:text-right">{invoice.payment_method}</strong>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
-            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-sm text-slate-500">Batas Orderan</span>
-              <strong
-                className={[
-                  "text-sm sm:text-right",
-                  remainingSeconds <= 0 ? "text-red-600" : "text-slate-900",
-                ].join(" ")}
-              >
-                {countdownText}
+              <strong className="text-sm sm:text-right">
+                {invoice.payment_method}
               </strong>
             </div>
           </div>
+          {!isCashPayment ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm text-slate-500">Batas Orderan</span>
+                <strong
+                  className={[
+                    "text-sm sm:text-right",
+                    remainingSeconds <= 0 ? "text-red-600" : "text-slate-900",
+                  ].join(" ")}
+                >
+                  {countdownText}
+                </strong>
+              </div>
+            </div>
+          ) : null}
           <div className="rounded-xl border border-[#ff711c]/25 bg-[linear-gradient(135deg,#fff7f0_0%,#fff3ea_100%)] px-4 py-3">
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm font-semibold text-slate-600">
@@ -443,6 +485,22 @@ export default function InvoicePage() {
               ) : null}
             </div>
           </div>
+        ) : isCashPayment && canCancelOrder ? (
+          <div className="border-t border-slate-200/80 px-5 pb-6 pt-5 sm:px-8 sm:pb-8">
+            <div className="space-y-2">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-700">
+                Pembayaran Cash diproses manual.
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCancelModal(true)}
+                disabled={isCancelling}
+                className="w-full rounded-xl bg-red-600 px-7 py-3 font-bold text-white shadow-[0_14px_30px_rgba(220,38,38,0.25)] transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
+              >
+                Batalkan Order
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="border-t border-slate-200/80 px-5 pb-6 pt-5 sm:px-8 sm:pb-8">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm font-bold text-emerald-700">
@@ -468,12 +526,15 @@ export default function InvoicePage() {
             aria-labelledby="cancelInvoiceTitle"
             className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
           >
-            <h3 id="cancelInvoiceTitle" className="text-lg font-bold text-slate-900">
+            <h3
+              id="cancelInvoiceTitle"
+              className="text-lg font-bold text-slate-900"
+            >
               Batalkan Order Ini?
             </h3>
             <p className="mt-2 text-sm text-slate-600">
-              Kalau dibatalkan, order <strong>{invoice.code}</strong> akan hilang dari
-              pending admin dan tidak bisa dilanjutkan.
+              Kalau dibatalkan, order <strong>{invoice.code}</strong> akan
+              hilang dari pending admin dan tidak bisa dilanjutkan.
             </p>
             <div className="mt-5 flex gap-2">
               <button
