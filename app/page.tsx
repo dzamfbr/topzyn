@@ -1,14 +1,7 @@
-"use client";
+﻿"use client";
 
-import { DEFAULT_PRODUCTS, type ProductCategory } from "@/lib/home-products";
 import Link from "next/link";
-import {
-  type RefObject,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 type UserSession = {
   id: number;
@@ -22,12 +15,20 @@ type MeResponse = {
   user: UserSession;
 };
 
-const BANNERS = [
-  "/images/banner1.jpg",
-  "/images/banner2.jpg",
-  "/images/banner3.jpg",
-];
-const BANNER_LOOP = [...BANNERS, BANNERS[0]];
+type MlbbCatalogItem = {
+  id: number;
+  code: string;
+  name: string;
+  image_url: string;
+  base_price: number;
+  final_price: number;
+  discount_percent: number;
+};
+
+type MlbbCatalogResponse = {
+  status: "ok" | "error";
+  items?: MlbbCatalogItem[];
+};
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -36,10 +37,106 @@ const NAV_LINKS = [
   { label: "Kalkulator", href: "/kalkulator" },
 ];
 
-const DESKTOP_INITIAL_ROWS = 2;
-const DESKTOP_COLUMNS = 7;
-const MOBILE_INITIAL_ROWS = 3;
-const MOBILE_COLUMNS = 4;
+const HOME_BANNERS = [
+  "/images/topzyn/banners/topzyn-home-banner-slide-01.jpg",
+  "/images/topzyn/banners/topzyn-home-banner-slide-02.jpg",
+  "/images/topzyn/banners/topzyn-home-banner-slide-03.jpg",
+];
+const HOME_BANNER_SECTION_BG =
+  "/images/topzyn/backgrounds/topzyn-home-banner-background-desktop.jpg";
+const HOME_BANNER_SECTION_BG_MOBILE =
+  "/images/topzyn/backgrounds/topzyn-home-banner-background-mobile.png";
+const FLASH_SALE_TIMER_BG = "/images/topzyn/time.png";
+const FLASH_SALE_DISCOUNT_PRICE_BG = "/images/topzyn/harga_diskon.png";
+const FLASH_SALE_CARD_LIMIT = 5;
+const FLASH_SALE_PRODUCT_CODES = [
+  "MLWDP001",
+  "MLDM001",
+  "MLDM002",
+  "MLDM003",
+  "MLDM004",
+];
+const FLASH_SALE_MARQUEE_DURATION_SECONDS = 28;
+
+function getSecondsUntilNextMidnight(): number {
+  const now = new Date();
+  const nextMidnight = new Date(now);
+  nextMidnight.setHours(24, 0, 0, 0);
+  return Math.max(
+    0,
+    Math.floor((nextMidnight.getTime() - now.getTime()) / 1000),
+  );
+}
+
+function formatRupiah(value: number): string {
+  return `Rp ${Math.max(0, Math.floor(value)).toLocaleString("id-ID")}`;
+}
+
+function resolveFlashSaleItems(
+  sourceItems: MlbbCatalogItem[],
+  targetCodes: string[],
+  cardLimit: number,
+): MlbbCatalogItem[] {
+  if (!Array.isArray(sourceItems) || sourceItems.length === 0) {
+    return [];
+  }
+
+  const normalizedCodes = targetCodes
+    .map((value) => value.trim().toUpperCase())
+    .filter(Boolean);
+  const sourceByCode = new Map(
+    sourceItems.map((item) => [(item.code ?? "").toUpperCase(), item]),
+  );
+
+  const matchedByCode = normalizedCodes
+    .map((code) => sourceByCode.get(code))
+    .filter((item): item is MlbbCatalogItem => Boolean(item));
+
+  const fallbackWdpItems = sourceItems.filter((item) => {
+    const code = (item.code ?? "").toUpperCase();
+    const name = (item.name ?? "").toLowerCase();
+    return code.includes("WDP") || name.includes("weekly diamond pass");
+  });
+
+  const seedItems =
+    normalizedCodes.length > 0 ? matchedByCode : fallbackWdpItems;
+  if (seedItems.length === 0) {
+    return [];
+  }
+
+  const safeLimit = Math.max(1, cardLimit);
+  return Array.from(
+    { length: safeLimit },
+    (_, index) => seedItems[index % seedItems.length],
+  );
+}
+
+function getDisplayDiscountPercent(item: MlbbCatalogItem): number {
+  if (item.discount_percent > 0) {
+    return Math.floor(item.discount_percent);
+  }
+
+  if (item.base_price <= 0 || item.final_price >= item.base_price) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(((item.base_price - item.final_price) / item.base_price) * 100),
+  );
+}
+
+function getFlashSaleTargetHref(item: MlbbCatalogItem): string {
+  const code = (item.code ?? "").trim().toUpperCase();
+
+  // Flash sale currently serves MLBB catalog. Keep this mapper explicit so
+  // future product routes can be added by code prefix.
+  if (code.startsWith("ML")) {
+    return `/produk/mobile-legends?item=${encodeURIComponent(code)}`;
+  }
+
+  return `/produk/mobile-legends?item=${encodeURIComponent(code)}`;
+}
 
 function FallbackImage({
   src,
@@ -275,79 +372,24 @@ function ProfileDropdownMenu({
 }
 
 export default function Home() {
+  const bannerCount = HOME_BANNERS.length;
   const [user, setUser] = useState<UserSession>(null);
   const [isAuthResolved, setIsAuthResolved] = useState(false);
-  const products = DEFAULT_PRODUCTS;
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNavHidden, setIsNavHidden] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
-  const [activeTab, setActiveTab] = useState<ProductCategory>("topup");
-  const [isDesktopGrid, setIsDesktopGrid] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(
-    MOBILE_INITIAL_ROWS * MOBILE_COLUMNS,
-  );
-  const [productAnimationMode, setProductAnimationMode] = useState<
-    "none" | "tab" | "loadMore"
-  >("tab");
-  const [loadMoreStartIndex, setLoadMoreStartIndex] = useState(0);
-  const [productAnimationSeed, setProductAnimationSeed] = useState(0);
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [canSlideTransition, setCanSlideTransition] = useState(true);
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [flashSaleItems, setFlashSaleItems] = useState<MlbbCatalogItem[]>([]);
+  const [isFlashSaleLoading, setIsFlashSaleLoading] = useState(true);
+  const [flashSaleError, setFlashSaleError] = useState("");
+  const [isFlashSalePaused, setIsFlashSalePaused] = useState(false);
+  const [secondsUntilMidnight, setSecondsUntilMidnight] = useState(0);
 
   const desktopDropdownRef = useRef<HTMLDivElement | null>(null);
   const mobileDropdownRef = useRef<HTMLDivElement | null>(null);
   const desktopToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
-
-  const popularProducts = useMemo(
-    () => products.filter((item) => item.isPopular).slice(0, 5),
-    [products],
-  );
-
-  const filteredProducts = useMemo(
-    () => products.filter((item) => item.category.includes(activeTab)),
-    [activeTab, products],
-  );
-
-  const initialVisibleCount = useMemo(() => {
-    if (isDesktopGrid) {
-      return DESKTOP_INITIAL_ROWS * DESKTOP_COLUMNS;
-    }
-    return MOBILE_INITIAL_ROWS * MOBILE_COLUMNS;
-  }, [isDesktopGrid]);
-
-  const displayedProducts = filteredProducts.slice(0, visibleCount);
-  const canLoadMore = visibleCount < filteredProducts.length;
-
-  useEffect(() => {
-    const media = window.matchMedia("(min-width: 768px)");
-
-    const syncViewport = () => {
-      setIsDesktopGrid(media.matches);
-    };
-
-    syncViewport();
-    media.addEventListener("change", syncViewport);
-
-    return () => media.removeEventListener("change", syncViewport);
-  }, []);
-
-  useEffect(() => {
-    if (isExpanded) {
-      const nextVisible = filteredProducts.length;
-      setVisibleCount((previous) =>
-        previous === nextVisible ? previous : nextVisible,
-      );
-      return;
-    }
-
-    const nextVisible = Math.min(initialVisibleCount, filteredProducts.length);
-    setVisibleCount((previous) =>
-      previous === nextVisible ? previous : nextVisible,
-    );
-  }, [filteredProducts.length, initialVisibleCount, isExpanded]);
 
   useEffect(() => {
     let disposed = false;
@@ -360,9 +402,7 @@ export default function Home() {
         });
 
         const data = (await response.json()) as MeResponse;
-        if (disposed) {
-          return;
-        }
+        if (disposed) return;
 
         if (!response.ok || data.status !== "success") {
           setUser(null);
@@ -389,24 +429,47 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const frameId = window.requestAnimationFrame(() => {
-      const searchParams = new URLSearchParams(window.location.search);
-      const hasLogoutQuery = searchParams.get("logout") === "1";
-      if (hasLogoutQuery) {
-        setShowNotification(true);
-        searchParams.delete("logout");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("logout") === "1") {
+      setShowNotification(true);
+      params.delete("logout");
+      const nextQuery = params.toString();
+      const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`;
+      window.history.replaceState({}, "", nextUrl);
+    }
+  }, []);
 
-        const nextSearch = searchParams.toString();
-        const nextUrl = `${window.location.pathname}${
-          nextSearch ? `?${nextSearch}` : ""
-        }${window.location.hash}`;
-        window.history.replaceState(window.history.state, "", nextUrl);
-      }
-    });
+  useEffect(() => {
+    if (!showNotification) return;
+    const timer = window.setTimeout(() => setShowNotification(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [showNotification]);
 
-    return () => {
-      window.cancelAnimationFrame(frameId);
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+
+    const handleOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (desktopToggleRef.current?.contains(target)) return;
+      if (mobileToggleRef.current?.contains(target)) return;
+      if (desktopDropdownRef.current?.contains(target)) return;
+      if (mobileDropdownRef.current?.contains(target)) return;
+      setIsDropdownOpen(false);
     };
+
+    document.addEventListener("click", handleOutside);
+    return () => document.removeEventListener("click", handleOutside);
+  }, [isDropdownOpen]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsDropdownOpen(false);
+        setShowLogoutModal(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
   useEffect(() => {
@@ -416,7 +479,6 @@ export default function Home() {
     const updateNavVisibility = () => {
       const currentScrollY = window.scrollY;
       const delta = currentScrollY - lastScrollY;
-
       if (Math.abs(delta) > 6) {
         if (currentScrollY > 40 && delta > 0) {
           setIsNavHidden(true);
@@ -424,7 +486,6 @@ export default function Home() {
           setIsNavHidden(false);
         }
       }
-
       lastScrollY = currentScrollY;
       ticking = false;
     };
@@ -441,84 +502,86 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setCanSlideTransition(true);
-      setSlideIndex((previous) => previous + 1);
-    }, 5000);
-
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (slideIndex !== BANNER_LOOP.length - 1) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setCanSlideTransition(false);
-      setSlideIndex(0);
-    }, 600);
-
-    return () => window.clearTimeout(timeout);
-  }, [slideIndex]);
-
-  useEffect(() => {
-    if (!isDropdownOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (desktopDropdownRef.current?.contains(target)) {
-        return;
-      }
-      if (mobileDropdownRef.current?.contains(target)) {
-        return;
-      }
-      if (desktopToggleRef.current?.contains(target)) {
-        return;
-      }
-      if (mobileToggleRef.current?.contains(target)) {
-        return;
-      }
-      setIsDropdownOpen(false);
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isDropdownOpen]);
-
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsDropdownOpen(false);
-        setShowLogoutModal(false);
-      }
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, []);
-
-  useEffect(() => {
     document.body.classList.toggle("overflow-hidden", showLogoutModal);
     return () => document.body.classList.remove("overflow-hidden");
   }, [showLogoutModal]);
 
-  const handleTabChange = (category: ProductCategory) => {
-    setActiveTab(category);
-    setIsExpanded(false);
-    setProductAnimationMode("tab");
-    setProductAnimationSeed((previous) => previous + 1);
+  useEffect(() => {
+    if (bannerCount <= 1) return;
+    const intervalId = window.setInterval(() => {
+      setActiveBannerIndex((previous) => (previous + 1) % bannerCount);
+    }, 3600);
+    return () => window.clearInterval(intervalId);
+  }, [bannerCount]);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      setSecondsUntilMidnight(getSecondsUntilNextMidnight());
+    };
+
+    updateCountdown();
+    const timerId = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timerId);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFlashSaleItems = async () => {
+      try {
+        setIsFlashSaleLoading(true);
+        setFlashSaleError("");
+
+        const response = await fetch("/api/mlbb/catalog", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const data = (await response.json()) as MlbbCatalogResponse;
+
+        if (cancelled) return;
+        if (!response.ok || data.status !== "ok") {
+          setFlashSaleError("Gagal memuat promo hari ini.");
+          setFlashSaleItems([]);
+          return;
+        }
+
+        const sourceItems = Array.isArray(data.items) ? data.items : [];
+        const resolvedItems = resolveFlashSaleItems(
+          sourceItems,
+          FLASH_SALE_PRODUCT_CODES,
+          FLASH_SALE_CARD_LIMIT,
+        );
+
+        setFlashSaleItems(resolvedItems);
+      } catch {
+        if (!cancelled) {
+          setFlashSaleError("Gagal memuat promo hari ini.");
+          setFlashSaleItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsFlashSaleLoading(false);
+        }
+      }
+    };
+
+    void loadFlashSaleItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const goToPreviousBanner = () => {
+    if (bannerCount <= 1) return;
+    setActiveBannerIndex(
+      (previous) => (previous - 1 + bannerCount) % bannerCount,
+    );
   };
 
-  const handleLoadMore = () => {
-    if (!canLoadMore) {
-      return;
-    }
-    setLoadMoreStartIndex(visibleCount);
-    setIsExpanded(true);
-    setProductAnimationMode("loadMore");
-    setProductAnimationSeed((previous) => previous + 1);
+  const goToNextBanner = () => {
+    if (bannerCount <= 1) return;
+    setActiveBannerIndex((previous) => (previous + 1) % bannerCount);
   };
 
   const handleLogoutConfirm = async () => {
@@ -527,27 +590,30 @@ export default function Home() {
     setUser(null);
 
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-      });
+      await fetch("/api/auth/logout", { method: "POST" });
     } catch {
-      // Tetap lanjut redirect supaya state user lokal ter-reset.
+      // keep redirect for consistent UX
     }
     window.location.href = "/?logout=1";
   };
 
+  const countdownHours = String(
+    Math.floor(secondsUntilMidnight / 3600),
+  ).padStart(2, "0");
+  const countdownMinutes = String(
+    Math.floor((secondsUntilMidnight % 3600) / 60),
+  ).padStart(2, "0");
+  const countdownSeconds = String(secondsUntilMidnight % 60).padStart(2, "0");
+
   return (
-    <div className="min-h-screen bg-white pb-[86px] pt-[104px] text-zinc-900 md:pb-0 md:pt-[130px]">
+    <div className="min-h-screen bg-white pb-[86px] text-zinc-900 md:pb-0">
       <nav
-        className={[
-          "fixed inset-x-0 top-0 z-[999] bg-[#293275] shadow-[0_8px_18px_rgba(14,16,22,0.08)] transition-transform duration-300",
-          isNavHidden ? "-translate-y-full" : "translate-y-0",
-        ].join(" ")}
+        className="sticky top-0 z-[999] bg-[#293275] shadow-[0_8px_18px_rgba(14,16,22,0.08)]"
       >
         <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between gap-4 px-4 md:h-[90px] md:px-6">
           <Link href="/" className="inline-flex items-center">
             <FallbackImage
-              src="/images/title_logo_topzyn.png"
+              src="/images/topzyn/branding/topzyn-brand-title-logo.png"
               alt="TopZyn"
               className="h-10 w-auto md:h-12"
               loading="eager"
@@ -645,9 +711,7 @@ export default function Home() {
         <div className="flex h-[34px] items-center overflow-hidden border-t border-white/40 bg-[#293275] md:h-10">
           <div className="running-text-track inline-block whitespace-nowrap pl-[100%] [animation:runningText_15s_linear_infinite]">
             <span className="inline-block px-5 text-sm font-bold text-white md:px-7 md:text-base">
-              Bingung mau top up atau joki game di mana? Tenang, di TopZyn aja!
-              Toko top up dan joki terpercaya No.1 se-Indonesia. Cepat, aman,
-              dan selalu memuaskan! TopZyn - Top Up Mudah, Main Makin Seru!
+              TopZyn - Top Up Mudah, Main Makin Seru!
             </span>
           </div>
         </div>
@@ -802,7 +866,9 @@ export default function Home() {
                 />
               </svg>
             </div>
-            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-2xl">Sukses</h3>
+            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-2xl">
+              Sukses
+            </h3>
             <p className="text-sm text-slate-500">Aksi berhasil diproses.</p>
             <button
               type="button"
@@ -815,180 +881,249 @@ export default function Home() {
         </div>
       ) : null}
 
-      <section className="mt-6 px-4 md:mt-16 md:px-0">
-        <div className="mx-auto aspect-[16/7] max-w-6xl overflow-hidden">
-          <div
-            className="flex h-full w-full"
-            style={{
-              transform: `translateX(-${slideIndex * 100}%)`,
-              transition: canSlideTransition ? "transform 0.6s ease" : "none",
-            }}
-          >
-            {BANNER_LOOP.map((banner, index) => (
-              <div key={`${banner}-${index}`} className="h-full min-w-full">
-                <FallbackImage
-                  src={banner}
-                  alt={`Banner ${index + 1}`}
-                  className="h-full w-full rounded-xl object-cover md:rounded-2xl"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  fetchPriority={index === 0 ? "high" : "low"}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <main className="pb-4">
+        <section className="relative w-full overflow-hidden">
+          <FallbackImage
+            src={HOME_BANNER_SECTION_BG}
+            alt="Banner background desktop"
+            className="absolute inset-0 hidden h-full w-full object-fill md:block"
+            fetchPriority="low"
+          />
+          <FallbackImage
+            src={HOME_BANNER_SECTION_BG_MOBILE}
+            alt="Banner background mobile"
+            className="absolute inset-0 h-full w-full object-fill md:hidden"
+            fetchPriority="low"
+          />
+          <div className="relative mx-auto max-w-6xl px-4 pb-16 pt-10 sm:pb-20 sm:pt-12 md:pb-24 md:pt-14">
+            <div className="relative mx-auto aspect-[3/1] w-full max-w-[980px]">
+              {HOME_BANNERS.map((banner, index) => {
+                const total = HOME_BANNERS.length;
+                const leftIndex = (activeBannerIndex - 1 + total) % total;
+                const rightIndex = (activeBannerIndex + 1) % total;
 
-      <section
-        className="mt-4 px-4 py-8 md:mt-14 md:py-10"
-        style={{ contentVisibility: "auto" }}
-      >
-        <div className="mx-auto mb-5 max-w-6xl">
-          <h2 className="text-2xl font-bold md:text-3xl">Populer Sekarang!</h2>
-          <p className="text-xs text-zinc-500 md:text-sm">
-            Berikut beberapa produk yang paling populer saat ini.
-          </p>
-        </div>
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
-          {popularProducts.map((item) => (
-            <Link
-              key={item.name}
-              href={item.link}
-              className="cards block no-underline [perspective:500px]"
-            >
-              <article className="card group relative overflow-hidden rounded-xl bg-white shadow-sm [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-[transform,box-shadow] motion-safe:duration-300 motion-safe:ease-out hover:shadow-lg hover:[transform:translateZ(2.5px)_rotateX(2.5deg)_rotateY(2.5deg)_scale(1.03)] md:rounded-2xl">
-                <FallbackImage
-                  src={item.popularImage ?? item.image}
-                  alt={item.name}
-                  className="block h-auto w-full object-contain bg-[#11162e] grayscale transition duration-500 group-hover:grayscale-0"
-                  fetchPriority="low"
-                />
-                <div className="absolute inset-x-0 bottom-0 flex h-[26%] min-h-[44px] flex-col justify-center bg-[#293275]/95 p-2 text-white md:min-h-[52px] md:p-2.5">
-                  <span className="block text-xs font-semibold leading-tight md:text-sm lg:text-base">
-                    {item.name}
-                  </span>
-                  <small className="text-[11px] text-white/80">
-                    {item.publisher}
-                  </small>
+                const cardClass =
+                  index === activeBannerIndex
+                    ? "z-30 opacity-100 blur-0 [transform:translateX(-50%)_scale(1)]"
+                    : index === leftIndex
+                      ? "max-md:hidden z-20 opacity-100 blur-0 [transform:translateX(calc(-50%-28%))_scale(0.86)] hover:[transform:translateX(calc(-50%-28%))_scale(0.93)] focus-visible:[transform:translateX(calc(-50%-28%))_scale(0.93)]"
+                      : index === rightIndex
+                        ? "max-md:hidden z-20 opacity-100 blur-0 [transform:translateX(calc(-50%+28%))_scale(0.86)] hover:[transform:translateX(calc(-50%+28%))_scale(0.93)] focus-visible:[transform:translateX(calc(-50%+28%))_scale(0.93)]"
+                        : "z-10 pointer-events-none opacity-0 [transform:translateX(-50%)_scale(0.82)]";
+
+                return (
+                  <article
+                    key={`${banner}-${index}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Tampilkan banner ${index + 1}`}
+                    onClick={() => setActiveBannerIndex(index)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setActiveBannerIndex(index);
+                      }
+                    }}
+                    className={[
+                      "absolute left-1/2 top-0 h-full w-[88%] max-w-[860px] cursor-pointer overflow-hidden rounded-2xl shadow-[0_18px_34px_rgba(18,24,44,0.25)] outline-none transition-all duration-700 ease-[cubic-bezier(0.22,0.61,0.36,1)] hover:brightness-110 focus-visible:ring-2 focus-visible:ring-[#ff711c] focus-visible:ring-offset-2",
+                      cardClass,
+                    ].join(" ")}
+                  >
+                    <FallbackImage
+                      src={banner}
+                      alt={`Banner ${index + 1}`}
+                      className="h-full w-full rounded-2xl object-cover"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      fetchPriority={index === 0 ? "high" : "low"}
+                    />
+                  </article>
+                );
+              })}
+
+              {bannerCount > 1 ? (
+                <div className="pointer-events-none absolute left-1/2 top-1/2 z-40 flex w-[88%] max-w-[860px] -translate-x-1/2 -translate-y-1/2 items-center justify-between md:hidden">
+                  <button
+                    type="button"
+                    aria-label="Banner sebelumnya"
+                    onClick={goToPreviousBanner}
+                    className="pointer-events-auto -ml-6 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition hover:scale-105 active:scale-95"
+                  >
+                    <FallbackImage
+                      src="/images/topzyn/ui/topzyn-banner-arrow-left.png"
+                      alt="Prev"
+                      className="h-8 w-8 object-contain"
+                      loading="eager"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-label="Banner berikutnya"
+                    onClick={goToNextBanner}
+                    className="pointer-events-auto -mr-6 inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-[0_10px_24px_rgba(0,0,0,0.25)] transition hover:scale-105 active:scale-95"
+                  >
+                    <FallbackImage
+                      src="/images/topzyn/ui/topzyn-banner-arrow-right.png"
+                      alt="Next"
+                      className="h-8 w-8 object-contain"
+                      loading="eager"
+                    />
+                  </button>
                 </div>
-              </article>
-            </Link>
-          ))}
-        </div>
-      </section>
+              ) : null}
+            </div>
 
-      <section
-        className="mx-auto max-w-6xl px-4 pb-2"
-        style={{ contentVisibility: "auto" }}
-      >
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => handleTabChange("topup")}
-            className={[
-              "rounded-md px-3 py-2 text-[10px] transition md:text-xs",
-              activeTab === "topup"
-                ? "bg-[#293275] font-semibold text-white hover:bg-[#293275]/90"
-                : "bg-slate-500 font-medium text-white hover:bg-slate-600",
-            ].join(" ")}
-          >
-            ALL PRODUCT
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange("ml")}
-            className={[
-              "rounded-md px-3 py-2 text-[10px] transition md:text-xs",
-              activeTab === "ml"
-                ? "bg-[#293275] font-semibold text-white hover:bg-[#293275]/90"
-                : "bg-slate-500 font-medium text-white hover:bg-slate-600",
-            ].join(" ")}
-          >
-            MLBB/MCGG
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange("ff")}
-            className={[
-              "rounded-md px-3 py-2 text-[10px] transition md:text-xs",
-              activeTab === "ff"
-                ? "bg-[#293275] font-semibold text-white hover:bg-[#293275]/90"
-                : "bg-slate-500 font-medium text-white hover:bg-slate-600",
-            ].join(" ")}
-          >
-            FF
-          </button>
-        </div>
-
-        <div className="grid grid-cols-4 gap-3 md:grid-cols-7 md:gap-4">
-          {displayedProducts.map((product, index) => (
-            <Link
-              key={`${activeTab}-${product.name}-${index}-${productAnimationSeed}`}
-              href={product.link}
-              className="cards block [perspective:500px]"
-            >
-              <figure
-                className={[
-                  "card group relative overflow-hidden rounded-md border-2 border-zinc-600 bg-[#16161d] [transform-style:preserve-3d] [will-change:transform] motion-safe:transition-[transform,box-shadow] motion-safe:duration-300 motion-safe:ease-out hover:shadow-lg hover:[transform:translateZ(2.5px)_rotateX(2.5deg)_rotateY(2.5deg)_scale(1.03)]",
-                  productAnimationMode === "tab" ||
-                  (productAnimationMode === "loadMore" &&
-                    index >= loadMoreStartIndex)
-                    ? "opacity-0 motion-safe:[animation:productCardReveal_420ms_cubic-bezier(0.18,0.8,0.28,1)_forwards]"
-                    : "",
-                ].join(" ")}
-                style={{
-                  animationDelay:
-                    productAnimationMode === "tab"
-                      ? `${Math.min(index, 11) * 45}ms`
-                      : productAnimationMode === "loadMore" &&
-                          index >= loadMoreStartIndex
-                        ? `${Math.min(index - loadMoreStartIndex, 8) * 50}ms`
-                        : undefined,
-                }}
-              >
-                <FallbackImage
-                  src={product.image}
-                  alt={product.name}
-                  className="block h-auto w-full object-contain"
-                  fetchPriority="low"
+            <div className="mt-3 flex items-center justify-center gap-2">
+              {HOME_BANNERS.map((_, index) => (
+                <button
+                  key={`banner-dot-${index}`}
+                  type="button"
+                  onClick={() => setActiveBannerIndex(index)}
+                  aria-label={`Pilih banner ${index + 1}`}
+                  className={[
+                    "h-[5px] rounded-full transition-all duration-300",
+                    index === activeBannerIndex
+                      ? "w-10 bg-[#ff711c]"
+                      : "w-6 bg-white/75 hover:bg-white",
+                  ].join(" ")}
                 />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-100" />
-                <figcaption className="card_title pointer-events-none absolute inset-0 flex items-center justify-center text-white opacity-0 motion-safe:transition-opacity motion-safe:duration-300 group-hover:opacity-100">
-                  <div className="text-center [transform:translateZ(0)] motion-safe:translate-y-8 motion-safe:transition-transform motion-safe:duration-300 group-hover:[transform:translateZ(20px)] group-hover:translate-y-0">
-                    <span className="block text-[13px] font-bold leading-tight [text-shadow:-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000,1px_1px_0_#000] md:text-sm">
-                      {product.name}
-                    </span>
-                    <small className="mt-1 block text-[11px] text-white/80">
-                      {product.publisher}
-                    </small>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto mt-6 max-w-6xl px-4 md:mt-10">
+          <div className="rounded-[22px] bg-[#dbeafe] p-3.5 shadow-[0_14px_35px_rgba(0,0,0,0.08)] sm:rounded-[24px] sm:p-4.5 md:rounded-[28px] md:p-7">
+            <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="font-display text-[23px] font-extrabold tracking-wide text-[#111827] sm:text-[26px] md:text-[30px]">
+                  F<span className="text-[#facc15]">⚡</span>ASH SALE
+                </h2>
+                <p className="mt-1 text-xs font-semibold text-slate-700 sm:text-sm md:text-base">
+                  Penawaran terbatas khusus untuk kamu.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {[countdownHours, countdownMinutes, countdownSeconds].map(
+                  (unit, idx) => (
+                    <div
+                      key={`countdown-unit-${idx}`}
+                      className="relative h-12 w-[52px] overflow-hidden rounded-lg shadow-[0_10px_25px_rgba(0,0,0,0.18)] sm:h-14 sm:w-[60px] sm:rounded-xl md:h-16 md:w-[68px]"
+                    >
+                      <FallbackImage
+                        src={FLASH_SALE_TIMER_BG}
+                        alt={`Timer unit ${idx + 1}`}
+                        className="absolute inset-0 h-full w-full object-fill"
+                        fetchPriority="low"
+                      />
+                      <div className="relative flex h-full items-center justify-center bg-black/10 text-[22px] font-extrabold leading-none text-white sm:text-[26px] md:text-[30px]">
+                        {unit}
+                      </div>
+                    </div>
+                  ),
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 sm:mt-5 md:mt-6">
+              {isFlashSaleLoading ? (
+                <div className="flex gap-3 overflow-hidden sm:gap-4">
+                  {Array.from({ length: FLASH_SALE_CARD_LIMIT }).map(
+                    (_, idx) => (
+                      <div
+                        key={`flash-skeleton-${idx}`}
+                        className="h-[132px] w-[260px] shrink-0 animate-pulse rounded-xl bg-white/65 sm:h-[146px] sm:w-[300px] sm:rounded-2xl md:h-[156px] md:w-[320px]"
+                      />
+                    ),
+                  )}
+                </div>
+              ) : flashSaleError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+                  {flashSaleError}
+                </div>
+              ) : flashSaleItems.length === 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white/70 px-4 py-3 text-sm font-semibold text-slate-600">
+                  Belum ada produk flash sale untuk hari ini.
+                </div>
+              ) : (
+                <div
+                  className="overflow-hidden"
+                  onMouseEnter={() => setIsFlashSalePaused(true)}
+                  onMouseLeave={() => setIsFlashSalePaused(false)}
+                  onFocusCapture={() => setIsFlashSalePaused(true)}
+                  onBlurCapture={() => setIsFlashSalePaused(false)}
+                >
+                  <div
+                    className="flex w-max items-stretch gap-3 pr-3 sm:gap-4 sm:pr-4"
+                    style={{
+                      animation: `topzynFlashSaleMarquee ${FLASH_SALE_MARQUEE_DURATION_SECONDS}s linear infinite`,
+                      animationPlayState: isFlashSalePaused
+                        ? "paused"
+                        : "running",
+                    }}
+                  >
+                    {[...flashSaleItems, ...flashSaleItems].map(
+                      (item, index) => {
+                        const discountPercent = getDisplayDiscountPercent(item);
+                        return (
+                          <Link
+                            key={`flash-item-${item.id}-${item.code}-${index}`}
+                            href={getFlashSaleTargetHref(item)}
+                            className="w-[260px] shrink-0 rounded-xl border border-white/80 bg-white px-3 py-2.5 shadow-[0_12px_28px_rgba(17,24,39,0.16)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(17,24,39,0.2)] sm:w-[300px] sm:rounded-2xl sm:px-3.5 sm:py-3 md:w-[320px] md:px-4"
+                          >
+                            <h3 className="line-clamp-2 min-h-[36px] text-[14px] font-extrabold leading-tight text-slate-900 sm:min-h-[42px] sm:text-[16px] md:min-h-[46px] md:text-[18px]">
+                              {item.name}
+                            </h3>
+
+                            <div className="mt-2 flex items-center gap-2.5 sm:gap-3">
+                              <div className="h-[62px] w-[62px] shrink-0 overflow-hidden rounded-lg bg-slate-100 p-1.5 sm:h-[70px] sm:w-[70px] sm:rounded-xl md:h-[76px] md:w-[76px]">
+                                <FallbackImage
+                                  src={item.image_url}
+                                  alt={item.name}
+                                  className="h-full w-full object-contain"
+                                  fetchPriority="low"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="relative h-9 min-w-[132px] overflow-hidden rounded-md sm:h-10 sm:min-w-[152px] sm:rounded-lg md:h-11 md:min-w-[170px]">
+                                  <FallbackImage
+                                    src={FLASH_SALE_DISCOUNT_PRICE_BG}
+                                    alt="Background harga diskon"
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    fetchPriority="low"
+                                  />
+                                  <p className="relative z-10 flex h-full items-center justify-center px-2 text-center text-[18px] font-black leading-none text-[#ff711c] sm:text-[21px] md:px-3 md:text-[24px]">
+                                    {formatRupiah(item.final_price)}
+                                  </p>
+                                </div>
+                                <p className="mt-1 text-[12px] font-semibold text-slate-500 line-through sm:text-[13px] md:text-[15px]">
+                                  {formatRupiah(item.base_price)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-2.5 flex justify-end sm:mt-3">
+                              <span className="inline-flex items-center rounded-full bg-[#ff711c]/12 px-2.5 py-1 text-[11px] font-extrabold text-[#ff711c] sm:px-3 sm:text-xs">
+                                Diskon {discountPercent}%
+                              </span>
+                            </div>
+                          </Link>
+                        );
+                      },
+                    )}
                   </div>
-                </figcaption>
-              </figure>
-            </Link>
-          ))}
-        </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      </main>
 
-        <div className="mt-6 flex justify-center">
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            className={[
-              "rounded-xl bg-[#293275] px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-[#293275]/90",
-              canLoadMore ? "" : "hidden",
-            ].join(" ")}
-          >
-            Tampilkan Lainnya
-          </button>
-        </div>
-      </section>
-
-      <footer
-        className="mt-20 bg-white text-white md:mt-24"
-        style={{ contentVisibility: "auto" }}
-      >
+      <footer className="relative -mb-[86px] mt-20 bg-white text-white after:block after:h-[86px] after:bg-[#293275] md:mb-0 md:mt-24 md:after:hidden">
         <div className="w-full overflow-hidden">
           <FallbackImage
-            src="/images/footer_banner_topzyn.png"
+            src="/images/topzyn/branding/topzyn-footer-banner-wave.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
             fetchPriority="low"
@@ -1008,19 +1143,19 @@ export default function Home() {
                   Peta Situs
                 </h4>
                 <Link
-                  href="#"
+                  href="/"
                   className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
                 >
                   Beranda
                 </Link>
                 <Link
-                  href="#"
+                  href="/login"
                   className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
                 >
                   Masuk
                 </Link>
                 <Link
-                  href="#"
+                  href="/register"
                   className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
                 >
                   Daftar
@@ -1032,7 +1167,7 @@ export default function Home() {
                   Kalkulator
                 </Link>
                 <Link
-                  href="#"
+                  href="/riwayat"
                   className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
                 >
                   Cek Transaksi
@@ -1120,19 +1255,23 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
       <style jsx global>{`
-        @keyframes productCardReveal {
-          from {
-            opacity: 0;
-            transform: translateY(16px);
+        @keyframes topzynFlashSaleMarquee {
+          0% {
+            transform: translateX(0);
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          [style*="topzynFlashSaleMarquee"] {
+            animation: none !important;
           }
         }
       `}</style>
     </div>
   );
 }
-

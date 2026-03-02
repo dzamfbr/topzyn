@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   TopzynNotice,
@@ -73,7 +73,7 @@ function FallbackImage({
   src,
   alt,
   className,
-  fallback = "/images/1000x1000.jpg",
+  fallback = "/images/topzyn/placeholders/topzyn-placeholder-square-1000x1000.jpg",
 }: {
   src: string;
   alt: string;
@@ -437,7 +437,7 @@ export default function KalkulatorPage() {
         <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between gap-4 px-4 md:h-[90px] md:px-6">
           <Link href="/" className="inline-flex items-center">
             <FallbackImage
-              src="/images/title_logo_topzyn.png"
+              src="/images/topzyn/branding/topzyn-brand-title-logo.png"
               alt="TopZyn"
               className="h-10 w-auto md:h-12"
             />
@@ -699,7 +699,7 @@ export default function KalkulatorPage() {
             <div className="mb-6 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/images/web_logo_topzyn.png"
+                src="/images/topzyn/branding/topzyn-brand-favicon-logo.png"
                 alt="TopZyn"
                 className="mx-auto mb-4 h-auto w-[96px]"
               />
@@ -822,10 +822,10 @@ export default function KalkulatorPage() {
         </div>
       </section>
 
-      <footer className="mt-10 bg-white text-white md:mt-16">
+      <footer className="relative -mb-[86px] mt-10 bg-white text-white after:block after:h-[86px] after:bg-[#293275] md:mb-0 md:mt-16 md:after:hidden">
         <div className="w-full overflow-hidden">
           <FallbackImage
-            src="/images/footer_banner_topzyn.png"
+            src="/images/topzyn/branding/topzyn-footer-banner-wave.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
           />

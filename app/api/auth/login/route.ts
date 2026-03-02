@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const response = NextResponse.json({
       status: "success",
       message: "Login berhasil.",
-      redirect: "/",
+      redirect: (account.role || "user").toLowerCase() === "admin" ? "/admin" : "/",
       user: {
         id: Number(account.id),
         username: account.username,

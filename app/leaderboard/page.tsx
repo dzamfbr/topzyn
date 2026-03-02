@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   TopzynNotice,
@@ -95,7 +95,7 @@ function FallbackImage({
   src,
   alt,
   className,
-  fallback = "/images/1000x1000.jpg",
+  fallback = "/images/topzyn/placeholders/topzyn-placeholder-square-1000x1000.jpg",
 }: {
   src: string;
   alt: string;
@@ -501,7 +501,7 @@ export default function LeaderboardPage() {
         <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between gap-4 px-4 md:h-[90px] md:px-6">
           <Link href="/" className="inline-flex items-center">
             <FallbackImage
-              src="/images/title_logo_topzyn.png"
+              src="/images/topzyn/branding/topzyn-brand-title-logo.png"
               alt="TopZyn"
               className="h-10 w-auto md:h-12"
             />
@@ -801,14 +801,21 @@ export default function LeaderboardPage() {
                       ].join(" ")}
                     >
                       <div className="flex flex-col items-center text-center">
-                        <FallbackImage
-                          src="/images/user_icon_topzyn.png"
-                          alt={entry?.nickname ?? `Rank ${rank}`}
-                          className={[
-                            "h-10 w-10 rounded-lg object-cover md:h-16 md:w-16 md:rounded-xl",
-                            isChampion ? "h-12 w-12 md:h-20 md:w-20" : "",
-                          ].join(" ")}
-                        />
+                        {isChampion ? (
+                          <div className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-[#ffdf70] to-[#ffb800] text-[#293275] shadow-[0_10px_20px_rgba(255,184,0,0.35)] md:h-20 md:w-20 md:rounded-xl">
+                            <span
+                              className="iconify h-7 w-7 md:h-11 md:w-11"
+                              data-icon="mdi:crown"
+                              aria-hidden="true"
+                            />
+                          </div>
+                        ) : (
+                          <FallbackImage
+                            src="/images/topzyn/ui/topzyn-user-profile-icon.png"
+                            alt={entry?.nickname ?? `Rank ${rank}`}
+                            className="h-10 w-10 rounded-lg object-cover md:h-16 md:w-16 md:rounded-xl"
+                          />
+                        )}
                         <h3 className="mt-2 line-clamp-1 text-xs font-bold md:mt-3 md:text-lg">
                           {entry?.nickname ?? "Belum ada"}
                         </h3>
@@ -828,7 +835,7 @@ export default function LeaderboardPage() {
                           #{rank}
                         </div>
                         <p className="text-center text-[10px] text-slate-600 md:text-sm">
-                          Total Top Up
+                          Total
                         </p>
                         <p className="mt-1 text-center text-xs font-extrabold text-[#293275] md:text-3xl">
                           {formatRupiah(entry?.totalTopUp ?? 0)}
@@ -840,9 +847,11 @@ export default function LeaderboardPage() {
                             className="relative mt-2 text-center md:mt-3"
                           >
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#ff711c] md:text-sm">
-                              <span className="md:hidden">Prize : WDP</span>
+                              <span className="md:hidden">
+                                Prize : Voucher 30k
+                              </span>
                               <span className="hidden md:inline">
-                                Prize : 1x Weekly Diamond Pass
+                                Prize : Voucher 30k
                               </span>
                               <button
                                 type="button"
@@ -902,7 +911,7 @@ export default function LeaderboardPage() {
                   <span>Rank</span>
                   <span>Username</span>
                   <span>Email</span>
-                  <span className="text-right">Total Top Up</span>
+                  <span className="text-right">Total</span>
                 </div>
 
                 <div className="divide-y divide-slate-200">
@@ -917,7 +926,7 @@ export default function LeaderboardPage() {
 
                       <div className="flex items-center gap-3">
                         <FallbackImage
-                          src="/images/user_icon_topzyn.png"
+                          src="/images/topzyn/ui/topzyn-user-profile-icon.png"
                           alt={entry?.username ?? "Belum ada"}
                           className="h-7 w-7 rounded-full object-cover md:h-9 md:w-9"
                         />
@@ -947,10 +956,10 @@ export default function LeaderboardPage() {
         </div>
       </section>
 
-      <footer className="mt-10 bg-white text-white md:mt-16">
+      <footer className="relative -mb-[86px] mt-10 bg-white text-white after:block after:h-[86px] after:bg-[#293275] md:mb-0 md:mt-16 md:after:hidden">
         <div className="w-full overflow-hidden">
           <FallbackImage
-            src="/images/footer_banner_topzyn.png"
+            src="/images/topzyn/branding/topzyn-footer-banner-wave.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
           />
@@ -1072,4 +1081,3 @@ export default function LeaderboardPage() {
     </main>
   );
 }
-

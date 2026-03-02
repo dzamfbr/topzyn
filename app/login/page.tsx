@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -126,8 +126,17 @@ export default function LoginPage() {
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
-      const parsed = parseNotification(new URLSearchParams(window.location.search));
+      const searchParams = new URLSearchParams(window.location.search);
+      const parsed = parseNotification(searchParams);
       if (!parsed) {
+        if (searchParams.get("error") === "admin") {
+          setNotification({
+            type: "error",
+            title: "Akses Ditolak",
+            message: "Halaman admin hanya bisa diakses oleh akun dengan role admin.",
+            redirect: "",
+          });
+        }
         return;
       }
       setNotification(parsed);
@@ -203,7 +212,7 @@ export default function LoginPage() {
       <section className="flex min-h-screen">
         <div
           className="hidden min-h-screen w-1/2 bg-[#0b0b0b] bg-cover bg-center bg-no-repeat lg:block"
-          style={{ backgroundImage: "url('/images/tes1.jpg')" }}
+          style={{ backgroundImage: "url('/images/topzyn/backgrounds/topzyn-auth-background-hero.jpg')" }}
         />
 
         <div className="flex w-full items-center justify-center px-5 py-10 lg:w-[45%]">
@@ -216,7 +225,7 @@ export default function LoginPage() {
               Kembali ke Home
             </Link>
             <Image
-              src="/images/web_logo_topzyn.png"
+              src="/images/topzyn/branding/topzyn-brand-favicon-logo.png"
               alt="TopZyn logo"
               width={80}
               height={80}

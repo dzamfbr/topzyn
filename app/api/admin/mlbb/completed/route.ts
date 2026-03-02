@@ -1,6 +1,7 @@
 import type { RowDataPacket } from "mysql2/promise";
 import { NextResponse } from "next/server";
 
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { getDbPool } from "@/lib/tidb";
 
 export const runtime = "nodejs";
@@ -19,7 +20,12 @@ type CompletedOrderRow = RowDataPacket & {
   account_email: string | null;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   try {
     const db = getDbPool();
     const [rows] = await db.query<CompletedOrderRow[]>(

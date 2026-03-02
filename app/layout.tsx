@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Nunito_Sans, Sora } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -22,14 +22,14 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/images/web_logo_topzyn.png",
+        url: "/images/topzyn/branding/topzyn-brand-favicon-logo.png",
         type: "image/png",
       },
     ],
-    shortcut: ["/images/web_logo_topzyn.png"],
+    shortcut: ["/images/topzyn/branding/topzyn-brand-favicon-logo.png"],
     apple: [
       {
-        url: "/images/web_logo_topzyn.png",
+        url: "/images/topzyn/branding/topzyn-brand-favicon-logo.png",
       },
     ],
   },
@@ -47,10 +47,11 @@ export default function RootLayout({
       >
         <Script
           src="https://code.iconify.design/3/3.1.1/iconify.min.js"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
         />
         {children}
       </body>
     </html>
   );
 }
+

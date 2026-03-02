@@ -1,912 +1,274 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { TopzynNotice, type TopzynNoticeTone } from "@/components/ui/topzyn-notice";
 
-type PendingOrder = {
-  order_number: string;
-  item_name: string;
-  target: string;
-  payment_method_code: string;
-  payment_method_name: string;
-  payment_kind: "qris" | "cash" | "minimarket";
-  total_amount: number;
-  contact_whatsapp: string;
-  created_at: string;
-  expires_at: string;
-  status: string;
-  qris_uploaded: boolean;
-  qris_image_url: string | null;
-  minimarket_payment_code: string | null;
-  payment_asset_uploaded: boolean;
-  payment_confirmed_by_user: boolean;
-  payment_confirmed_at: string | null;
-  is_expired: boolean;
+type AdminUser = {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
 };
 
-type CompletedOrder = {
-  order_number: string;
-  item_name: string;
-  target: string;
-  payment_method_name: string;
-  total_amount: number;
-  contact_whatsapp: string;
-  status: string;
-  created_at: string;
-  account_username: string | null;
-  account_email: string | null;
-};
-
-type PendingOrderResponse = {
-  status: "ok" | "error";
-  message?: string;
-  orders?: PendingOrder[];
-};
-
-type CompletedOrderResponse = {
-  status: "ok" | "error";
-  message?: string;
-  orders?: CompletedOrder[];
-};
-
-type ActionResponse = {
-  status: "ok" | "error";
+type AdminMeResponse = {
+  status: "success" | "error";
+  user?: AdminUser;
   message?: string;
 };
 
-type AdminTab = "pending" | "completed";
+const ADMIN_MENU_ITEMS = [
+  { key: "menu-1", label: "Menu 1", icon: "mdi:view-dashboard-outline" },
+  { key: "menu-2", label: "Menu 2", icon: "mdi:clipboard-text-outline" },
+  { key: "menu-3", label: "Menu 3", icon: "mdi:wallet-outline" },
+  { key: "menu-4", label: "Menu 4", icon: "mdi:account-group-outline" },
+  { key: "menu-5", label: "Menu 5", icon: "mdi:cog-outline" },
+];
 
-function formatRupiah(value: number): string {
-  return `Rp ${Math.max(0, Math.floor(value)).toLocaleString("id-ID")}`;
-}
+export default function AdminPage() {
+  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeMenuKey, setActiveMenuKey] = useState(ADMIN_MENU_ITEMS[0].key);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function getPaymentKind(codeOrName: string): "qris" | "cash" | "minimarket" {
-  const value = codeOrName.trim().toUpperCase();
-  if (
-    value.includes("MINIMARKET") ||
-    value.includes("ALFA") ||
-    value.includes("INDO")
-  ) {
-    return "minimarket";
-  }
-  if (value.includes("COD") || value.includes("CASH")) {
-    return "cash";
-  }
-  return "qris";
-}
-
-export default function AdminPendingOrderPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>("pending");
-  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
-  const [completedOrders, setCompletedOrders] = useState<CompletedOrder[]>([]);
-  const [isLoadingPending, setIsLoadingPending] = useState(true);
-  const [isLoadingCompleted, setIsLoadingCompleted] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [actionOrderCode, setActionOrderCode] = useState("");
-  const [actionType, setActionType] = useState("");
-  const [notice, setNotice] = useState("");
-  const [pendingCancelOrderCode, setPendingCancelOrderCode] = useState("");
-  const [pendingDeleteCompletedOrderCode, setPendingDeleteCompletedOrderCode] =
-    useState("");
-  const [minimarketCodeInput, setMinimarketCodeInput] = useState<
-    Record<string, string>
-  >({});
-
-  const hasPendingOrders = useMemo(
-    () => pendingOrders.length > 0,
-    [pendingOrders.length],
+  const activeMenuLabel = useMemo(
+    () =>
+      ADMIN_MENU_ITEMS.find((item) => item.key === activeMenuKey)?.label ??
+      ADMIN_MENU_ITEMS[0].label,
+    [activeMenuKey],
   );
-  const hasCompletedOrders = useMemo(
-    () => completedOrders.length > 0,
-    [completedOrders.length],
-  );
-  const noticeTone = useMemo<TopzynNoticeTone>(() => {
-    if (!notice) {
-      return "info";
-    }
-    return /gagal|error|tidak/i.test(notice) ? "error" : "success";
-  }, [notice]);
-
-  const loadPendingOrders = async (showLoader = true) => {
-    if (showLoader) {
-      setIsLoadingPending(true);
-    }
-    setLoadError("");
-    try {
-      const response = await fetch("/api/admin/mlbb/pending", {
-        method: "GET",
-        cache: "no-store",
-      });
-      const data = (await response.json()) as PendingOrderResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Gagal memuat pending order.");
-      }
-      const nextOrders = data.orders ?? [];
-      setPendingOrders(nextOrders);
-      setMinimarketCodeInput((current) => {
-        const next: Record<string, string> = {};
-        nextOrders.forEach((order) => {
-          next[order.order_number] =
-            current[order.order_number] ?? order.minimarket_payment_code ?? "";
-        });
-        return next;
-      });
-    } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : "Gagal memuat pending order.",
-      );
-    } finally {
-      if (showLoader) {
-        setIsLoadingPending(false);
-      }
-    }
-  };
-
-  const loadCompletedOrders = async (showLoader = true) => {
-    if (showLoader) {
-      setIsLoadingCompleted(true);
-    }
-    setLoadError("");
-    try {
-      const response = await fetch("/api/admin/mlbb/completed", {
-        method: "GET",
-        cache: "no-store",
-      });
-      const data = (await response.json()) as CompletedOrderResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Gagal memuat transaksi selesai.");
-      }
-      setCompletedOrders(data.orders ?? []);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Gagal memuat transaksi selesai.",
-      );
-    } finally {
-      if (showLoader) {
-        setIsLoadingCompleted(false);
-      }
-    }
-  };
 
   useEffect(() => {
-    void loadPendingOrders();
-    void loadCompletedOrders();
+    let disposed = false;
+
+    const loadAdmin = async () => {
+      try {
+        const response = await fetch("/api/admin/me", {
+          method: "GET",
+          cache: "no-store",
+        });
+        const data = (await response.json()) as AdminMeResponse;
+
+        if (disposed) return;
+
+        if (!response.ok || data.status !== "success" || !data.user) {
+          window.location.href = "/login?error=admin";
+          return;
+        }
+
+        setAdmin(data.user);
+      } catch {
+        if (!disposed) {
+          window.location.href = "/login?error=admin";
+        }
+      } finally {
+        if (!disposed) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadAdmin();
+
+    return () => {
+      disposed = true;
+    };
   }, []);
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      if (activeTab === "pending") {
-        void loadPendingOrders(false);
-        return;
-      }
-      void loadCompletedOrders(false);
-    }, 4000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (!notice) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setNotice("");
-    }, 5000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [notice]);
-
-  const handleCancel = async (orderCode: string) => {
-    setActionOrderCode(orderCode);
-    setActionType("cancel");
-    setNotice("");
+  const handleLogoutConfirm = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     try {
-      const response = await fetch(
-        `/api/admin/mlbb/pending/${encodeURIComponent(orderCode)}`,
-        {
-          method: "DELETE",
-        },
-      );
-      const data = (await response.json()) as ActionResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Gagal membatalkan order.");
-      }
-      setPendingOrders((current) =>
-        current.filter((item) => item.order_number !== orderCode),
-      );
-      setNotice("Order berhasil dibatalkan.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Gagal membatalkan order.");
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // ignore and continue to redirect
     } finally {
-      setActionOrderCode("");
-      setActionType("");
+      window.location.href = "/?logout=1";
     }
   };
 
-  const handleComplete = async (orderCode: string) => {
-    setActionOrderCode(orderCode);
-    setActionType("complete");
-    setNotice("");
-    try {
-      const response = await fetch(
-        `/api/admin/mlbb/pending/${encodeURIComponent(orderCode)}`,
-        {
-          method: "POST",
-        },
-      );
-      const data = (await response.json()) as ActionResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Gagal menyelesaikan order.");
-      }
-      setPendingOrders((current) =>
-        current.filter((item) => item.order_number !== orderCode),
-      );
-      void loadCompletedOrders();
-      setNotice("Order selesai dan sudah masuk database.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Gagal menyelesaikan order.");
-    } finally {
-      setActionOrderCode("");
-      setActionType("");
-    }
-  };
-
-  const handleDeleteCompleted = async (orderCode: string) => {
-    setActionOrderCode(orderCode);
-    setActionType("delete-completed");
-    setNotice("");
-    try {
-      const response = await fetch(
-        `/api/admin/mlbb/completed/${encodeURIComponent(orderCode)}`,
-        {
-          method: "DELETE",
-        },
-      );
-      const data = (await response.json()) as ActionResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Gagal menghapus transaksi.");
-      }
-      setCompletedOrders((current) =>
-        current.filter((item) => item.order_number !== orderCode),
-      );
-      setNotice("Transaksi berhasil dihapus dari database.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Gagal menghapus transaksi.");
-    } finally {
-      setActionOrderCode("");
-      setActionType("");
-    }
-  };
-
-  const toSquareImageFile = async (file: File): Promise<File> => {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(new Error("Gagal membaca file gambar."));
-      reader.readAsDataURL(file);
-    });
-
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Gagal memuat gambar."));
-      img.src = dataUrl;
-    });
-
-    const size = Math.min(image.naturalWidth, image.naturalHeight);
-    const sx = Math.max(0, Math.floor((image.naturalWidth - size) / 2));
-    const sy = Math.max(0, Math.floor((image.naturalHeight - size) / 2));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      throw new Error("Canvas context tidak tersedia.");
-    }
-    context.drawImage(image, sx, sy, size, size, 0, 0, size, size);
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/png", 0.92);
-    });
-    if (!blob) {
-      throw new Error("Gagal memproses gambar QRIS.");
-    }
-
-    return new File([blob], `qris-${Date.now()}.png`, { type: "image/png" });
-  };
-
-  const handleUploadQris = async (orderCode: string, rawFile: File | null) => {
-    if (!rawFile) {
-      return;
-    }
-    setActionOrderCode(orderCode);
-    setActionType("upload");
-    setNotice("");
-    try {
-      const squareFile = await toSquareImageFile(rawFile);
-      const formData = new FormData();
-      formData.append("qris", squareFile);
-
-      const response = await fetch(
-        `/api/admin/mlbb/pending/${encodeURIComponent(orderCode)}/qris`,
-        {
-          method: "POST",
-          body: formData,
-        },
-      );
-      const data = (await response.json()) as ActionResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Gagal upload QRIS.");
-      }
-      setNotice("QRIS berhasil diunggah (otomatis dibuat rasio 1:1).");
-      await loadPendingOrders();
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Gagal upload QRIS.");
-    } finally {
-      setActionOrderCode("");
-      setActionType("");
-    }
-  };
-
-  const handleSaveMinimarketCode = async (orderCode: string) => {
-    const codeInput = (minimarketCodeInput[orderCode] ?? "")
-      .trim()
-      .toUpperCase()
-      .replace(/\s+/g, "");
-    if (!codeInput) {
-      setNotice("Kode pembayaran minimarket wajib diisi.");
-      return;
-    }
-
-    setActionOrderCode(orderCode);
-    setActionType("upload-minimarket");
-    setNotice("");
-    try {
-      const response = await fetch(
-        `/api/admin/mlbb/pending/${encodeURIComponent(
-          orderCode,
-        )}/minimarket-code`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ payment_code: codeInput }),
-        },
-      );
-      const data = (await response.json()) as ActionResponse;
-      if (!response.ok || data.status !== "ok") {
-        throw new Error(
-          data.message ?? "Gagal menyimpan kode pembayaran minimarket.",
-        );
-      }
-      setNotice("Kode pembayaran minimarket berhasil disimpan.");
-      await loadPendingOrders();
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : "Gagal menyimpan kode pembayaran minimarket.",
-      );
-    } finally {
-      setActionOrderCode("");
-      setActionType("");
-    }
-  };
-
-  const handleRefresh = () => {
-    if (activeTab === "pending") {
-      void loadPendingOrders();
-      return;
-    }
-    void loadCompletedOrders();
-  };
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-[#eef2ff] via-white to-[#f8faff] p-2 md:p-0">
+        <div className="px-4 py-4 md:px-6">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-[#293275]/20" />
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8">
-      <TopzynNotice
-        open={Boolean(loadError)}
-        tone="error"
-        title="Gagal Memuat Data"
-        message={loadError}
-        autoHideMs={7000}
-        onClose={() => setLoadError("")}
-      />
-      <TopzynNotice
-        open={Boolean(notice)}
-        tone={noticeTone}
-        title={noticeTone === "error" ? "Aksi Gagal" : "Aksi Berhasil"}
-        message={notice}
-        autoHideMs={5000}
-        onClose={() => setNotice("")}
-      />
-
-      <section className="mx-auto max-w-5xl">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-[#293275]">Admin MLBB</h1>
-            <p className="text-sm text-slate-500">
-              Kelola pending order dan transaksi yang sudah masuk database.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="rounded-lg bg-[#293275] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f265f]"
-          >
-            Refresh
-          </button>
-        </header>
-
-        <div className="mb-5 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setActiveTab("pending")}
-            className={[
-              "rounded-lg px-4 py-2 text-sm font-semibold transition",
-              activeTab === "pending"
-                ? "bg-[#293275] text-white"
-                : "text-slate-600 hover:bg-slate-100",
-            ].join(" ")}
-          >
-            Pending Order ({pendingOrders.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("completed")}
-            className={[
-              "rounded-lg px-4 py-2 text-sm font-semibold transition",
-              activeTab === "completed"
-                ? "bg-[#293275] text-white"
-                : "text-slate-600 hover:bg-slate-100",
-            ].join(" ")}
-          >
-            Transaksi Selesai ({completedOrders.length})
-          </button>
-        </div>
-
-        {activeTab === "pending" ? (
-          isLoadingPending ? (
-            <div className="grid gap-4">
-              {Array.from({ length: 3 }).map((_, index) => (
-                <div
-                  key={`pending-loader-${index}`}
-                  className="h-40 animate-pulse rounded-xl bg-slate-200"
+    <main className="min-h-screen bg-gradient-to-br from-[#eef2ff] via-white to-[#f8faff] p-2 pb-20 md:p-0 md:pb-0">
+      <div className="flex w-full flex-col gap-3 md:flex-row md:gap-4">
+        <aside className="flex w-full flex-col rounded-3xl bg-[#293275] p-4 text-white shadow-[0_24px_50px_rgba(41,50,117,0.28)] md:sticky md:top-0 md:h-screen md:w-[240px] md:rounded-l-none md:rounded-r-3xl md:p-5 lg:w-[250px] xl:w-[260px]">
+          <div className="flex min-h-12 items-center justify-between gap-2 md:hidden">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15">
+                <span
+                  className="iconify h-6 w-6 text-white"
+                  data-icon="fa6-solid:user-tie"
+                  aria-hidden="true"
                 />
-              ))}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-extrabold leading-tight">
+                  {admin?.username ?? "Admin"}
+                </p>
+                <p className="truncate text-[11px] text-white/80 leading-tight">
+                  {admin?.email ?? "-"}
+                </p>
+              </div>
             </div>
-          ) : hasPendingOrders ? (
-            <div className="grid gap-4">
-              {pendingOrders.map((order) => {
-                const isBusy = actionOrderCode === order.order_number;
-                const paymentKind =
-                  order.payment_kind ||
-                  getPaymentKind(order.payment_method_code || order.payment_method_name);
-                const isCash = paymentKind === "cash";
-                const isQris = paymentKind === "qris";
-                const isMinimarket = paymentKind === "minimarket";
-                const isPaymentAssetReady = Boolean(order.payment_asset_uploaded);
-                const canComplete = isCash
-                  ? !isBusy
-                  : !isBusy && !order.is_expired && order.payment_confirmed_by_user;
-                return (
-                  <article
-                    key={order.order_number}
-                    className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <h2 className="text-base font-bold text-[#293275]">
-                        {order.order_number}
-                      </h2>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-                          {order.is_expired ? "EXPIRED" : "PENDING"}
-                        </span>
-                        {!isCash ? (
-                          <span
-                            className={[
-                              "rounded-full px-3 py-1 text-xs font-bold",
-                              isPaymentAssetReady
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-slate-100 text-slate-700",
-                            ].join(" ")}
-                          >
-                            {isQris
-                              ? `QRIS ${isPaymentAssetReady ? "Uploaded" : "Belum Upload"}`
-                              : `Kode Minimarket ${
-                                  isPaymentAssetReady ? "Uploaded" : "Belum Upload"
-                                }`}
-                          </span>
-                        ) : null}
-                        {!isCash ? (
-                          <span
-                            className={[
-                              "rounded-full px-3 py-1 text-xs font-bold",
-                              order.payment_confirmed_by_user
-                                ? "bg-blue-100 text-blue-700"
-                                : "bg-slate-100 text-slate-700",
-                            ].join(" ")}
-                          >
-                            {order.payment_confirmed_by_user
-                              ? "User Sudah Konfirmasi"
-                              : "User Belum Konfirmasi"}
-                          </span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                            Cash Manual
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-                      <p>
-                        <span className="text-slate-500">Tanggal: </span>
-                        <strong>{formatDate(order.created_at)}</strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">Item: </span>
-                        <strong>{order.item_name}</strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">Target: </span>
-                        <strong>{order.target}</strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">Payment: </span>
-                        <strong>{order.payment_method_name}</strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">Total: </span>
-                        <strong>{formatRupiah(order.total_amount)}</strong>
-                      </p>
-                      <p>
-                        <span className="text-slate-500">WA User: </span>
-                        <strong>{order.contact_whatsapp}</strong>
-                      </p>
-                      {!isCash ? (
-                        <p>
-                          <span className="text-slate-500">Batas Bayar: </span>
-                          <strong>{formatDate(order.expires_at)}</strong>
-                        </p>
-                      ) : null}
-                      {!isCash ? (
-                        <p>
-                          <span className="text-slate-500">Konfirmasi User: </span>
-                          <strong>
-                            {order.payment_confirmed_at
-                              ? formatDate(order.payment_confirmed_at)
-                              : "-"}
-                          </strong>
-                        </p>
-                      ) : null}
-                    </div>
-
-                    {isQris && order.qris_image_url ? (
-                      <div className="mt-4">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={order.qris_image_url}
-                          alt={`QRIS ${order.order_number}`}
-                          className="aspect-square w-full max-w-[180px] rounded-lg border border-slate-200 object-cover"
-                        />
-                      </div>
-                    ) : null}
-                    {isMinimarket ? (
-                      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="text-slate-500">Kode Pembayaran: </span>
-                        <strong>{order.minimarket_payment_code || "-"}</strong>
-                      </div>
-                    ) : null}
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {isQris ? (
-                        order.qris_uploaded ? (
-                          <span className="inline-flex items-center rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-semibold text-white">
-                            <svg
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                              className="h-[18px] w-[18px]"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M5 12.5 9.2 16.7 19 7.3" />
-                            </svg>
-                          </span>
-                        ) : (
-                          <label
-                            className={[
-                              "inline-flex cursor-pointer items-center rounded-lg bg-[#293275] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f265f]",
-                              isBusy ? "pointer-events-none opacity-60" : "",
-                            ].join(" ")}
-                          >
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              disabled={isBusy}
-                              onChange={(event) => {
-                                const file = event.target.files?.[0] ?? null;
-                                void handleUploadQris(order.order_number, file);
-                                event.currentTarget.value = "";
-                              }}
-                            />
-                            {isBusy && actionType === "upload"
-                              ? "Upload..."
-                              : "Upload QRIS"}
-                          </label>
-                        )
-                      ) : null}
-                      {isMinimarket ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input
-                            type="text"
-                            value={minimarketCodeInput[order.order_number] ?? ""}
-                            onChange={(event) =>
-                              setMinimarketCodeInput((current) => ({
-                                ...current,
-                                [order.order_number]: event.target.value,
-                              }))
-                            }
-                            placeholder="Kode unik minimarket"
-                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#293275] focus:ring-2 focus:ring-[#293275]/15"
-                            disabled={isBusy}
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void handleSaveMinimarketCode(order.order_number)
-                            }
-                            disabled={isBusy}
-                            className="rounded-lg bg-[#293275] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1f265f] disabled:cursor-not-allowed disabled:bg-slate-300"
-                          >
-                            {isBusy && actionType === "upload-minimarket"
-                              ? "Simpan..."
-                              : "Simpan Kode"}
-                          </button>
-                        </div>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => setPendingCancelOrderCode(order.order_number)}
-                        disabled={isBusy}
-                        className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
-                      >
-                        Batalkan
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleComplete(order.order_number)}
-                        disabled={!canComplete}
-                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
-                      >
-                        {isBusy && actionType === "complete"
-                          ? "Memproses..."
-                          : "Selesaikan"}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-slate-500">
-              Belum ada pending order.
-            </div>
-          )
-        ) : isLoadingCompleted ? (
-          <div className="grid gap-4">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div
-                key={`completed-loader-${index}`}
-                className="h-36 animate-pulse rounded-xl bg-slate-200"
+            <button
+              type="button"
+              onClick={() => setShowLogoutConfirm(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-500/70 bg-red-600 px-2.5 text-[11px] font-bold text-white transition hover:bg-red-700"
+            >
+              <span
+                className="iconify h-4 w-4"
+                data-icon="mdi:logout-variant"
+                aria-hidden="true"
               />
-            ))}
+              Logout
+            </button>
           </div>
-        ) : hasCompletedOrders ? (
-          <div className="grid gap-4">
-            {completedOrders.map((order) => {
-              const isBusy = actionOrderCode === order.order_number;
+
+          <div className="mt-3 hidden h-16 w-16 items-center justify-center rounded-full bg-white/15 md:inline-flex">
+            <span
+              className="iconify h-9 w-9 text-white"
+              data-icon="fa6-solid:user-tie"
+              aria-hidden="true"
+            />
+          </div>
+
+          <h1 className="mt-3 hidden text-lg font-extrabold tracking-tight md:block">
+            {admin?.username ?? "Admin"}
+          </h1>
+          <p className="mt-0.5 hidden text-xs text-white/80 md:block">
+            {admin?.email ?? "-"}
+          </p>
+
+          <nav className="mt-6 hidden flex-col gap-2 md:flex">
+            {ADMIN_MENU_ITEMS.map((item) => {
+              const isActive = item.key === activeMenuKey;
               return (
-                <article
-                  key={order.order_number}
-                  className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+                <Link
+                  key={item.key}
+                  href={`/admin#${item.key}`}
+                  onClick={() => setActiveMenuKey(item.key)}
+                  className={[
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition",
+                    isActive
+                      ? "bg-[#ff711c] text-white shadow-[0_10px_24px_rgba(255,113,28,0.35)]"
+                      : "bg-white/5 text-white/85 hover:bg-white/10",
+                  ].join(" ")}
                 >
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-base font-bold text-[#293275]">
-                      {order.order_number}
-                    </h2>
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-                      {String(order.status || "completed").toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
-                    <p>
-                      <span className="text-slate-500">Tanggal: </span>
-                      <strong>{formatDate(order.created_at)}</strong>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Item: </span>
-                      <strong>{order.item_name}</strong>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Target: </span>
-                      <strong>{order.target}</strong>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Payment: </span>
-                      <strong>{order.payment_method_name}</strong>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Total: </span>
-                      <strong>{formatRupiah(order.total_amount)}</strong>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">WA User: </span>
-                      <strong>{order.contact_whatsapp}</strong>
-                    </p>
-                    <p className="md:col-span-2">
-                      <span className="text-slate-500">Akun: </span>
-                      <strong>
-                        {order.account_username
-                          ? `${order.account_username}${
-                              order.account_email ? ` (${order.account_email})` : ""
-                            }`
-                          : "-"}
-                      </strong>
-                    </p>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPendingDeleteCompletedOrderCode(order.order_number)
-                      }
-                      disabled={isBusy}
-                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-300"
-                    >
-                      {isBusy && actionType === "delete-completed"
-                        ? "Menghapus..."
-                        : "Hapus Transaksi"}
-                    </button>
-                  </div>
-                </article>
+                  <span
+                    className="iconify h-5 w-5"
+                    data-icon={item.icon}
+                    aria-hidden="true"
+                  />
+                  {item.label}
+                </Link>
               );
             })}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-slate-500">
-            Belum ada transaksi selesai di database.
-          </div>
-        )}
-      </section>
+          </nav>
 
-      {pendingCancelOrderCode ? (
-        <div
-          className="fixed inset-0 z-[10010] flex items-center justify-center bg-black/45 px-4"
-          role="presentation"
-          onClick={(event) => {
-            if (event.currentTarget === event.target) {
-              setPendingCancelOrderCode("");
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cancelOrderTitle"
-            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
+          <button
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="mt-auto hidden items-center gap-2.5 rounded-lg border border-red-500/70 bg-red-600 px-3 py-2.5 text-xs font-bold text-white transition hover:bg-red-700 md:inline-flex"
           >
-            <h3 id="cancelOrderTitle" className="text-lg font-bold text-slate-900">
-              Batalkan Pesanan?
-            </h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Apakah yakin membatalkan pesanan dengan kode{" "}
-              <strong>{pendingCancelOrderCode}</strong>?
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Jika dibatalkan, pesanan akan dihapus dari antrian pending.
-            </p>
+            <span
+              className="iconify h-4 w-4"
+              data-icon="mdi:logout-variant"
+              aria-hidden="true"
+            />
+            Logout
+          </button>
+        </aside>
 
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPendingCancelOrderCode("")}
-                className="flex-1 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-              >
-                Tidak
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const orderCode = pendingCancelOrderCode;
-                  setPendingCancelOrderCode("");
-                  void handleCancel(orderCode);
-                }}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
-              >
-                Ya, Batalkan
-              </button>
-            </div>
+        <section className="w-full rounded-3xl border border-[#293275]/12 bg-white p-5 shadow-[0_20px_44px_rgba(15,23,42,0.08)] md:my-4 md:mr-4 md:flex-1">
+          <div className="rounded-2xl border border-dashed border-[#293275]/25 bg-[#f8f9ff] p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#293275]/65">
+              Panel Admin
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold text-[#293275]">
+              {activeMenuLabel}
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm text-slate-600">
+              Struktur sidebar admin sudah siap. Menu kamu sudah disiapkan 5
+              link dan bisa kita isi fitur satu per satu di langkah berikutnya.
+            </p>
           </div>
-        </div>
-      ) : null}
+        </section>
+      </div>
 
-      {pendingDeleteCompletedOrderCode ? (
-        <div
-          className="fixed inset-0 z-[10011] flex items-center justify-center bg-black/45 px-4"
-          role="presentation"
-          onClick={(event) => {
-            if (event.currentTarget === event.target) {
-              setPendingDeleteCompletedOrderCode("");
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="deleteCompletedTitle"
-            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
-          >
-            <h3
-              id="deleteCompletedTitle"
-              className="text-lg font-bold text-slate-900"
+      <nav className="fixed inset-x-2 bottom-2 z-[1000] grid grid-cols-5 gap-1.5 rounded-2xl border border-white/30 bg-[#293275]/95 p-1.5 shadow-[0_18px_32px_rgba(17,24,39,0.28)] backdrop-blur md:hidden">
+        {ADMIN_MENU_ITEMS.map((item) => {
+          const isActive = item.key === activeMenuKey;
+          return (
+            <Link
+              key={`mobile-${item.key}`}
+              href={`/admin#${item.key}`}
+              onClick={() => setActiveMenuKey(item.key)}
+              className={[
+                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center transition",
+                isActive
+                  ? "bg-[#ff711c] text-white"
+                  : "text-white/90 hover:bg-white/10",
+              ].join(" ")}
             >
-              Hapus Transaksi Selesai?
+              <span
+                className="iconify h-[18px] w-[18px]"
+                data-icon={item.icon}
+                aria-hidden="true"
+              />
+              <span className="truncate text-[10px] font-semibold leading-none">
+                {item.label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {showLogoutConfirm ? (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/45 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-[0_32px_70px_rgba(15,23,42,0.28)]">
+            <div className="mx-auto mb-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#fff4e8] text-[#ff711c]">
+              <span
+                className="iconify h-8 w-8"
+                data-icon="mdi:logout-variant"
+                aria-hidden="true"
+              />
+            </div>
+            <h3 className="text-center text-xl font-extrabold text-slate-900">
+              Yakin mau logout?
             </h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Apakah yakin menghapus transaksi dengan kode{" "}
-              <strong>{pendingDeleteCompletedOrderCode}</strong> dari database?
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Aksi ini akan menghapus data transaksi selesai secara permanen.
+            <p className="mt-1.5 text-center text-sm text-slate-500">
+              Sesi admin akan diakhiri dari perangkat ini.
             </p>
 
-            <div className="mt-5 flex gap-2">
+            <div className="mt-5 grid grid-cols-2 gap-2.5">
               <button
                 type="button"
-                onClick={() => setPendingDeleteCompletedOrderCode("")}
-                className="flex-1 rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-800 transition hover:bg-slate-200"
               >
-                Tidak
+                Batal
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const orderCode = pendingDeleteCompletedOrderCode;
-                  setPendingDeleteCompletedOrderCode("");
-                  void handleDeleteCompleted(orderCode);
-                }}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+                onClick={handleLogoutConfirm}
+                disabled={isLoggingOut}
+                className={[
+                  "rounded-xl px-4 py-2.5 text-sm font-bold text-white transition",
+                  isLoggingOut
+                    ? "cursor-not-allowed bg-[#ff711c]/70"
+                    : "bg-[#ff711c] hover:bg-[#e25f13]",
+                ].join(" ")}
               >
-                Ya, Hapus
+                {isLoggingOut ? "Keluar..." : "Logout"}
               </button>
             </div>
           </div>

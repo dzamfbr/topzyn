@@ -1,4 +1,4 @@
-USE topzyn;
+﻿USE topzyn;
 
 CREATE TABLE IF NOT EXISTS mlbb_topup_item (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -64,12 +64,12 @@ CREATE TABLE IF NOT EXISTS mlbb_topup_order (
 INSERT INTO mlbb_topup_item
   (code, name, image_url, base_price, final_price, discount_percent, is_active, sort_order)
 VALUES
-  ('ML_5_DM', '5 Diamond', '/images/diamond_mobile_legends.png', 2000, 1800, 10, 1, 1),
-  ('ML_12_DM', '12 Diamond', '/images/diamond_mobile_legends.png', 4200, 3900, 7, 1, 2),
-  ('ML_28_DM', '28 Diamond', '/images/diamond_mobile_legends.png', 9000, 8500, 5, 1, 3),
-  ('ML_36_DM', '36 Diamond', '/images/diamond_mobile_legends.png', 11200, 10500, 6, 1, 4),
-  ('ML_74_DM', '74 Diamond', '/images/diamond_mobile_legends.png', 22500, 20900, 7, 1, 5),
-  ('ML_WDP', 'Weekly Diamond Pass', '/images/weekly_diamond_pass.png', 32000, 29900, 7, 1, 6)
+  ('ML_5_DM', '5 Diamond', '/images/topzyn/products/mobile-legends/topzyn-mobile-legends-diamond-item.png', 2000, 1800, 10, 1, 1),
+  ('ML_12_DM', '12 Diamond', '/images/topzyn/products/mobile-legends/topzyn-mobile-legends-diamond-item.png', 4200, 3900, 7, 1, 2),
+  ('ML_28_DM', '28 Diamond', '/images/topzyn/products/mobile-legends/topzyn-mobile-legends-diamond-item.png', 9000, 8500, 5, 1, 3),
+  ('ML_36_DM', '36 Diamond', '/images/topzyn/products/mobile-legends/topzyn-mobile-legends-diamond-item.png', 11200, 10500, 6, 1, 4),
+  ('ML_74_DM', '74 Diamond', '/images/topzyn/products/mobile-legends/topzyn-mobile-legends-diamond-item.png', 22500, 20900, 7, 1, 5),
+  ('ML_WDP', 'Weekly Diamond Pass', '/images/topzyn/products/mobile-legends/topzyn-mobile-legends-weekly-diamond-pass.png', 32000, 29900, 7, 1, 6)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   image_url = VALUES(image_url),
@@ -82,10 +82,10 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO payment_method
   (code, name, logo_url, is_active, sort_order)
 VALUES
-  ('QRIS', 'QRIS', '/images/qris_topzyn.png', 1, 1),
-  ('COD_CASH', 'Cash (COD)', '/images/cash_topzyn.png', 1, 2),
-  ('MINIMARKET_ALFAMART', 'Alfamart', '/images/alfamart_topzyn.png', 1, 3),
-  ('MINIMARKET_INDOMARET', 'Indomaret', '/images/indomaret_topzyn.png', 1, 4)
+  ('QRIS', 'QRIS', '/images/topzyn/payments/topzyn-payment-method-qris.png', 1, 1),
+  ('COD_CASH', 'Cash (COD)', '/images/topzyn/payments/topzyn-payment-method-cash-cod.png', 1, 2),
+  ('MINIMARKET_ALFAMART', 'Alfamart', '/images/topzyn/payments/topzyn-payment-method-alfamart.png', 1, 3),
+  ('MINIMARKET_INDOMARET', 'Indomaret', '/images/topzyn/payments/topzyn-payment-method-indomaret.png', 1, 4)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   logo_url = VALUES(logo_url),

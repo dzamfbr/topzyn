@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireAdminRequest } from "@/lib/admin-auth";
 import {
   getPendingMlbbOrder,
   updatePendingMlbbOrder,
@@ -18,6 +19,11 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ orderCode: string }> },
 ) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   try {
     const params = await context.params;
     const orderCode = decodeURIComponent(params.orderCode ?? "").trim();
@@ -88,9 +94,14 @@ export async function POST(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ orderCode: string }> },
 ) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   try {
     const params = await context.params;
     const orderCode = decodeURIComponent(params.orderCode ?? "").trim();

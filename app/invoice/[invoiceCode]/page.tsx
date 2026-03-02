@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -324,7 +324,7 @@ export default function InvoicePage() {
           <div className="relative text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/web_logo_topzyn.png"
+              src="/images/topzyn/branding/topzyn-brand-favicon-logo.png"
               alt="TopZyn"
               className="mx-auto mb-2.5 h-auto w-[110px] sm:w-[120px]"
             />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { isPendingOrderExpired, listPendingMlbbOrders } from "@/lib/pending-order-store";
 
 export const runtime = "nodejs";
@@ -15,7 +16,12 @@ function getPaymentKind(codeOrName: string): "qris" | "cash" | "minimarket" {
   return "qris";
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   try {
     const orders = listPendingMlbbOrders().map((order) => {
       const paymentKind = getPaymentKind(

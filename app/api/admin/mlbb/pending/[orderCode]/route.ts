@@ -1,6 +1,7 @@
 import type { ResultSetHeader } from "mysql2/promise";
 import { NextResponse } from "next/server";
 
+import { requireAdminRequest } from "@/lib/admin-auth";
 import {
   getPendingMlbbOrder,
   removePendingMlbbOrder,
@@ -15,9 +16,14 @@ function isCashPayment(codeOrName: string): boolean {
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ orderCode: string }> },
 ) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   try {
     const params = await context.params;
     const orderCode = decodeURIComponent(params.orderCode ?? "").trim();
@@ -50,9 +56,14 @@ export async function DELETE(
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ orderCode: string }> },
 ) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   const db = getDbPool();
   const connection = await db.getConnection();
 

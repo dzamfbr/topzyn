@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -56,6 +56,7 @@ type MlbbOrderResponse = {
 };
 
 const WDP_NOTICE_KEY = "topzyn_hide_wdp_notice";
+const MLBB_TARGET_STORAGE_PREFIX = "topzyn_mlbb_last_target";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -100,11 +101,60 @@ function getPaymentCategory(method: PaymentMethod): PaymentCategory {
   return "qris";
 }
 
+function getMlbbTargetStorageKey(user: UserSession): string {
+  if (user?.id) {
+    return `${MLBB_TARGET_STORAGE_PREFIX}:user:${user.id}`;
+  }
+  return `${MLBB_TARGET_STORAGE_PREFIX}:guest`;
+}
+
+function loadStoredMlbbTarget(storageKey: string): {
+  game_user_id: string;
+  game_server: string;
+} | null {
+  const raw = window.localStorage.getItem(storageKey);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      game_user_id?: unknown;
+      game_server?: unknown;
+    };
+    if (
+      typeof parsed?.game_user_id === "string" &&
+      typeof parsed?.game_server === "string"
+    ) {
+      return {
+        game_user_id: parsed.game_user_id,
+        game_server: parsed.game_server,
+      };
+    }
+  } catch {
+    // ignore invalid localStorage payload
+  }
+  return null;
+}
+
+function saveStoredMlbbTarget(
+  storageKey: string,
+  payload: {
+    game_user_id: string;
+    game_server: string;
+  },
+) {
+  window.localStorage.setItem(
+    storageKey,
+    JSON.stringify({
+      ...payload,
+      updated_at: Date.now(),
+    }),
+  );
+}
+
 function FallbackImage({
   src,
   alt,
   className,
-  fallback = "/images/1000x1000.jpg",
+  fallback = "/images/topzyn/placeholders/topzyn-placeholder-square-1000x1000.jpg",
 }: {
   src: string;
   alt: string;
@@ -250,6 +300,8 @@ export default function MobileLegendsProductPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
+  const [requestedItemCode, setRequestedItemCode] = useState("");
+  const [requestedItemId, setRequestedItemId] = useState<number | null>(null);
 
   const [gameUserId, setGameUserId] = useState("");
   const [gameServer, setGameServer] = useState("");
@@ -289,6 +341,7 @@ export default function MobileLegendsProductPage() {
   const profileButtonRef = useRef<HTMLButtonElement | null>(null);
   const profileDropdownRef = useRef<HTMLDivElement | null>(null);
   const paymentSectionRef = useRef<HTMLDivElement | null>(null);
+  const hasAppliedQueryItemRef = useRef(false);
   const previousReadyRef = useRef(false);
   const topNoticeHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -373,6 +426,70 @@ export default function MobileLegendsProductPage() {
       disposed = true;
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const itemCode = (params.get("item") ?? "").trim().toUpperCase();
+    const itemIdRaw = Number.parseInt(params.get("itemId") ?? "", 10);
+
+    setRequestedItemCode(itemCode);
+    setRequestedItemId(
+      Number.isFinite(itemIdRaw) && itemIdRaw > 0 ? itemIdRaw : null,
+    );
+  }, []);
+
+  useEffect(() => {
+    hasAppliedQueryItemRef.current = false;
+  }, [requestedItemCode, requestedItemId]);
+
+  useEffect(() => {
+    if (hasAppliedQueryItemRef.current) return;
+    if (items.length === 0) return;
+
+    let matchedItem: MlbbItem | undefined;
+
+    if (requestedItemCode) {
+      matchedItem = items.find(
+        (item) => item.code.trim().toUpperCase() === requestedItemCode,
+      );
+    }
+
+    if (!matchedItem && requestedItemId !== null) {
+      matchedItem = items.find((item) => item.id === requestedItemId);
+    }
+
+    if (!matchedItem) {
+      hasAppliedQueryItemRef.current = true;
+      return;
+    }
+
+    setSelectedItemId(matchedItem.id);
+    setPromoState({ code: null, discountAmount: 0 });
+    setPromoTone("idle");
+    setPromoMessage("");
+    hasAppliedQueryItemRef.current = true;
+  }, [items, requestedItemCode, requestedItemId]);
+
+  useEffect(() => {
+    if (!isAuthResolved) return;
+    try {
+      const userKey = getMlbbTargetStorageKey(user);
+      const guestKey = `${MLBB_TARGET_STORAGE_PREFIX}:guest`;
+      const savedTarget =
+        loadStoredMlbbTarget(userKey) ??
+        (userKey !== guestKey ? loadStoredMlbbTarget(guestKey) : null);
+      if (!savedTarget) return;
+
+      setGameUserId((prev) =>
+        prev.trim() ? prev : (savedTarget.game_user_id ?? ""),
+      );
+      setGameServer((prev) =>
+        prev.trim() ? prev : (savedTarget.game_server ?? ""),
+      );
+    } catch {
+      // ignore localStorage read errors
+    }
+  }, [isAuthResolved, user?.id]);
 
   useEffect(() => {
     let disposed = false;
@@ -659,6 +776,14 @@ export default function MobileLegendsProductPage() {
       if (!response.ok || data.status !== "ok") {
         throw new Error(data.message ?? "Order gagal diproses.");
       }
+      try {
+        saveStoredMlbbTarget(getMlbbTargetStorageKey(user), {
+          game_user_id: gameUserId.trim(),
+          game_server: gameServer.trim(),
+        });
+      } catch {
+        // ignore localStorage write errors
+      }
       setShowOrderModal(false);
       window.location.href =
         data.invoice_url ??
@@ -716,7 +841,7 @@ export default function MobileLegendsProductPage() {
     >
       <span className="pointer-events-none absolute -right-8 -top-8 h-20 w-20 rounded-full bg-[#293275]/10 blur-xl transition-opacity duration-300 group-hover:opacity-100" />
       <FallbackImage
-        src="/images/pojok_kanan_atas.png"
+        src="/images/topzyn/ui/topzyn-card-corner-top-right.png"
         alt=""
         className="pointer-events-none absolute right-0 top-0 z-20 h-7 w-7 object-contain sm:h-8 sm:w-8"
       />
@@ -759,7 +884,7 @@ export default function MobileLegendsProductPage() {
         <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between gap-4 px-4 md:h-[90px] md:px-6">
           <Link href="/" className="inline-flex items-center">
             <FallbackImage
-              src="/images/title_logo_topzyn.png"
+              src="/images/topzyn/branding/topzyn-brand-title-logo.png"
               alt="TopZyn"
               className="h-10 w-auto md:h-12"
             />
@@ -897,13 +1022,13 @@ export default function MobileLegendsProductPage() {
 
       <main className="relative px-3 sm:px-4">
         <section className="mx-auto mt-6 max-w-6xl sm:mt-7">
-          <article className="relative overflow-hidden rounded-2xl border border-white/40 bg-[url('/images/bg_blue.jpg')] bg-cover bg-center p-4 text-white shadow-[0_24px_50px_rgba(41,50,117,0.32)] sm:p-6 md:p-7">
+          <article className="relative overflow-hidden rounded-2xl border border-white/40 bg-[url('/images/topzyn/backgrounds/topzyn-home-banner-background-desktop.jpg')] bg-cover bg-center p-4 text-white shadow-[0_24px_50px_rgba(41,50,117,0.32)] sm:p-6 md:p-7">
             <div className="absolute inset-0 bg-gradient-to-r from-[#0d1030]/75 to-[#293275]/70" />
             <div className="absolute -left-10 top-5 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
             <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ff711c]/25 blur-2xl" />
             <div className="relative grid items-center gap-3 sm:gap-4 md:grid-cols-[auto,1fr]">
               <FallbackImage
-                src="/images/mobile_legend_logo.png"
+                src="/images/topzyn/logos/topzyn-logo-mobile-legends.png"
                 alt="Mobile Legends"
                 className="mx-auto h-[88px] w-[88px] rounded-xl border border-white/50 object-cover shadow-[0_10px_26px_rgba(0,0,0,0.35)] sm:h-[108px] sm:w-[108px] sm:rounded-2xl md:mx-0 md:h-[124px] md:w-[124px]"
               />
@@ -931,11 +1056,31 @@ export default function MobileLegendsProductPage() {
               </h3>
             </div>
             <ol className="mt-3 list-decimal space-y-2.5 pl-5 text-xs leading-relaxed text-slate-600 sm:text-sm">
-              <li>Masukkan User ID dan Server dengan benar.</li>
-              <li>Pilih nominal diamonds yang kamu butuhkan.</li>
-              <li>Pilih metode pembayaran yang tersedia.</li>
-              <li>Masukkan nomor WhatsApp aktif.</li>
-              <li>Klik Order Sekarang lalu selesaikan pembayaran.</li>
+              <li>
+                Masukkan User ID dan Server dengan benar sesuai dengan akun game
+                kamu. Pastikan tidak ada kesalahan penulisan agar diamonds dapat
+                dikirim ke akun yang tepat.
+              </li>
+              <li>
+                Pilih nominal diamonds yang kamu butuhkan sesuai keinginan.
+                Pastikan jumlah yang dipilih sudah sesuai sebelum melanjutkan ke
+                tahap berikutnya.
+              </li>
+              <li>
+                Pilih metode pembayaran yang tersedia dan paling nyaman untuk
+                kamu gunakan. Kami menyediakan beberapa opsi pembayaran yang aman
+                dan mudah.
+              </li>
+              <li>
+                Masukkan nomor WhatsApp yang aktif dan dapat dihubungi. Nomor
+                ini akan digunakan oleh admin untuk konfirmasi pesanan atau jika
+                terjadi kendala dalam proses transaksi.
+              </li>
+              <li>
+                Setelah semua data terisi dengan benar, klik tombol "Order
+                Sekarang", lalu lanjutkan ke proses pembayaran hingga selesai
+                sesuai instruksi yang diberikan.
+              </li>
             </ol>
           </aside>
 
@@ -1230,62 +1375,110 @@ export default function MobileLegendsProductPage() {
       </div>
 
       {showOrderModal ? (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 px-4">
-          <div className="w-full max-w-[430px] rounded-2xl bg-white px-6 py-6 shadow-2xl">
-            <h3 className="text-center text-2xl font-bold">Order Sekarang?</h3>
-            <p className="mt-1 text-center text-sm text-slate-500">
-              Pastikan data akun kamu sudah valid dan sesuai.
-            </p>
-            <div className="mt-4 rounded-xl bg-[#fff7f0] p-4 text-sm">
-              <div className="flex justify-between py-1">
-                <span>Username</span>
-                <strong>{user?.username ?? "Guest"}</strong>
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 px-4 backdrop-blur-[1.5px]"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowOrderModal(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-[470px] overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_30px_70px_rgba(16,24,40,0.28)]">
+            <div className="relative bg-[linear-gradient(120deg,#eef2ff_0%,#ffffff_48%,#fff3ea_100%)] px-6 pb-5 pt-6">
+              <span className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#ff711c]/15 blur-2xl" />
+              <div className="relative mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#293275] text-white shadow-[0_12px_28px_rgba(41,50,117,0.35)]">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-7 w-7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 21a9 9 0 1 0-9-9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
               </div>
-              <div className="flex justify-between py-1">
-                <span>ID</span>
-                <strong>{gameUserId || "-"}</strong>
-              </div>
-              <div className="flex justify-between py-1">
-                <span>Server</span>
-                <strong>{gameServer || "-"}</strong>
-              </div>
-              <div className="flex justify-between py-1">
-                <span>Item</span>
-                <strong>{selectedItem?.name ?? "-"}</strong>
-              </div>
-              <div className="flex justify-between py-1">
-                <span>Harga</span>
-                <strong>{formatRupiah(subtotal)}</strong>
-              </div>
-              <div className="flex justify-between py-1">
-                <span>Payment</span>
-                <strong>{selectedPayment?.name ?? "-"}</strong>
-              </div>
-              <div className="flex justify-between py-1">
-                <span>Promo</span>
-                <strong>{summaryPromoText}</strong>
-              </div>
-              <div className="flex justify-between py-1 text-base font-bold">
-                <span>Total</span>
-                <strong>{formatRupiah(totalAmount)}</strong>
-              </div>
+              <h3 className="relative text-center text-2xl font-extrabold text-[#293275]">
+                Order Sekarang?
+              </h3>
+              <p className="relative mt-1 text-center text-sm text-slate-600">
+                Cek ulang detail berikut sebelum lanjut proses order.
+              </p>
             </div>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowOrderModal(false)}
-                className="flex-1 rounded-xl border-2 border-[#293275] px-4 py-2.5 font-bold text-[#293275]"
-              >
-                Batalkan
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmOrder}
-                disabled={isSubmittingOrder}
-                className="flex-1 rounded-xl bg-[#293275] px-4 py-2.5 font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isSubmittingOrder ? "Memproses..." : "Order Sekarang"}
-              </button>
+
+            <div className="px-6 py-5">
+              <div className="rounded-2xl border border-[#ff711c]/20 bg-[linear-gradient(135deg,#fff8f1_0%,#fff4eb_100%)] p-4 text-sm">
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">Username</span>
+                    <strong className="text-right text-slate-900">
+                      {user?.username ?? "Guest"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">ID</span>
+                    <strong className="text-right text-slate-900">
+                      {gameUserId || "-"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">Server</span>
+                    <strong className="text-right text-slate-900">
+                      {gameServer || "-"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">Item</span>
+                    <strong className="text-right text-slate-900">
+                      {selectedItem?.name ?? "-"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">Harga</span>
+                    <strong className="text-right text-slate-900">
+                      {formatRupiah(subtotal)}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">Payment</span>
+                    <strong className="text-right text-slate-900">
+                      {selectedPayment?.name ?? "-"}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-[#ff711c]/15 pb-2">
+                    <span className="text-slate-500">Promo</span>
+                    <strong className="text-right text-slate-900">
+                      {summaryPromoText}
+                    </strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pt-1 text-base font-extrabold text-[#293275]">
+                    <span>Total</span>
+                    <strong>{formatRupiah(totalAmount)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowOrderModal(false)}
+                  className="flex-1 rounded-xl border-2 border-[#293275]/35 bg-white px-4 py-2.5 font-bold text-[#293275] transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                >
+                  Batalkan
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmOrder}
+                  disabled={isSubmittingOrder}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-[#293275] to-[#1f265f] px-4 py-2.5 font-bold text-white shadow-[0_12px_24px_rgba(41,50,117,0.32)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-400 disabled:shadow-none"
+                >
+                  {isSubmittingOrder ? "Memproses..." : "Order Sekarang"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1300,7 +1493,7 @@ export default function MobileLegendsProductPage() {
               </h3>
               <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
                 <FallbackImage
-                  src="/images/1780x1000.jpg"
+                  src="/images/topzyn/placeholders/topzyn-placeholder-wide-1780x1000.jpg"
                   alt="Info WDP"
                   className="h-auto w-full object-cover"
                 />
@@ -1358,10 +1551,10 @@ export default function MobileLegendsProductPage() {
         </div>
       ) : null}
 
-      <footer className="mt-16 bg-white text-white md:mt-20">
+      <footer className="relative -mb-[86px] mt-16 bg-white text-white after:block after:h-[86px] after:bg-[#293275] md:mb-0 md:mt-20 md:after:hidden">
         <div className="w-full overflow-hidden">
           <FallbackImage
-            src="/images/footer_banner_topzyn.png"
+            src="/images/topzyn/branding/topzyn-footer-banner-wave.png"
             alt="Footer Visual"
             className="h-full w-full object-cover"
           />

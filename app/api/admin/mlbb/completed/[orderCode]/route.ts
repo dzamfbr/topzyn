@@ -1,6 +1,7 @@
 import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { NextResponse } from "next/server";
 
+import { requireAdminRequest } from "@/lib/admin-auth";
 import { getDbPool } from "@/lib/tidb";
 
 export const runtime = "nodejs";
@@ -24,9 +25,14 @@ function toAmount(value: number | string): number {
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ orderCode: string }> },
 ) {
+  const adminCheck = await requireAdminRequest(request);
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
   const db = getDbPool();
   const connection = await db.getConnection();
 
