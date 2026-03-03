@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   TopzynNotice,
@@ -28,7 +28,7 @@ type NoticeState = {
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "History", href: "/riwayat" },
+  { label: "History", href: "/invoice" },
   { label: "Kalkulator", href: "/kalkulator" },
 ];
 
@@ -193,10 +193,11 @@ function CalculatorIcon({ className }: { className?: string }) {
 
 function UserIcon({ className }: { className?: string }) {
   return (
-    <Icon className={className}>
-      <circle cx="12" cy="8" r="3.5" />
-      <path d="M4 19a8 8 0 0 1 16 0" />
-    </Icon>
+    <span
+      className={["iconify inline-block", className ?? ""].join(" ").trim()}
+      data-icon="mdi:account-circle-outline"
+      aria-hidden="true"
+    />
   );
 }
 
@@ -644,7 +645,7 @@ export default function LeaderboardPage() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="/riwayat"
+          href="/invoice"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
@@ -996,7 +997,7 @@ export default function LeaderboardPage() {
                   Daftar
                 </Link>
                 <Link
-                  href="/riwayat"
+                  href="/invoice"
                   className="mb-2 block text-base text-white transition hover:translate-x-1"
                 >
                   Cek Transaksi

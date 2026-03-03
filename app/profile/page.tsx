@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
@@ -8,7 +8,7 @@ import { TopzynNotice } from "@/components/ui/topzyn-notice";
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "History", href: "/riwayat" },
+  { label: "History", href: "/invoice" },
   { label: "Kalkulator", href: "/kalkulator" },
 ] as const;
 
@@ -1161,7 +1161,7 @@ export default function ProfilePage() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="/riwayat"
+          href="/invoice"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
@@ -1223,7 +1223,7 @@ export default function ProfilePage() {
                   Daftar
                 </Link>
                 <Link
-                  href="/riwayat"
+                  href="/invoice"
                   className="mb-2 block text-base text-white transition hover:translate-x-1"
                 >
                   Cek Transaksi

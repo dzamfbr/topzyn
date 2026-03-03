@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import { TopzynNotice } from "@/components/ui/topzyn-notice";
 
 type UserSession = {
   id: number;
@@ -47,7 +48,7 @@ type HomeProductCardItem = {
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "History", href: "/riwayat" },
+  { label: "History", href: "/invoice" },
   { label: "Kalkulator", href: "/kalkulator" },
 ];
 
@@ -507,12 +508,6 @@ export default function Home() {
   }, [isHomeRevealAnimating]);
 
   useEffect(() => {
-    if (!showNotification) return;
-    const timer = window.setTimeout(() => setShowNotification(false), 2500);
-    return () => window.clearTimeout(timer);
-  }, [showNotification]);
-
-  useEffect(() => {
     if (!isDropdownOpen) return;
 
     const handleOutside = (event: MouseEvent) => {
@@ -873,7 +868,7 @@ export default function Home() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="/riwayat"
+          href="/invoice"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
@@ -978,43 +973,14 @@ export default function Home() {
         </div>
       ) : null}
 
-      {showNotification ? (
-        <div
-          className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/45 px-4 [animation:fadeIn_0.25s_ease_forwards]"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowNotification(false);
-            }
-          }}
-        >
-          <div className="w-full max-w-[320px] rounded-[18px] bg-white px-5 py-5 text-center shadow-[0_20px_45px_rgba(0,0,0,0.22)] sm:max-w-[420px] sm:rounded-2xl sm:px-9 sm:py-8">
-            <div className="mx-auto mb-3 flex h-[70px] w-[70px] items-center justify-center rounded-full bg-emerald-50 text-emerald-600 sm:mb-5 sm:h-[90px] sm:w-[90px]">
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                className="h-9 w-9 sm:h-[46px] sm:w-[46px]"
-              >
-                <path
-                  d="M9.5 16.2L5.8 12.5l-1.4 1.4 5.1 5.1 10-10-1.4-1.4z"
-                  fill="currentColor"
-                />
-              </svg>
-            </div>
-            <h3 className="mb-2 text-lg font-bold text-slate-900 sm:text-2xl">
-              Sukses
-            </h3>
-            <p className="text-sm text-slate-500">Aksi berhasil diproses.</p>
-            <button
-              type="button"
-              onClick={() => setShowNotification(false)}
-              className="mt-4 rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 sm:text-sm"
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <TopzynNotice
+        open={showNotification}
+        tone="success"
+        title="Logout Berhasil"
+        message="Kamu sudah keluar dari akun."
+        autoHideMs={5000}
+        onClose={() => setShowNotification(false)}
+      />
 
       <main className="pb-4">
         <section className="relative w-full overflow-hidden">
@@ -1132,7 +1098,7 @@ export default function Home() {
             <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="font-display text-[23px] font-extrabold tracking-wide text-[#111827] sm:text-[26px] md:text-[30px]">
-                  F<span className="text-[#facc15]">⚡</span>ASH SALE
+                  F<span className="text-[#facc15]">?</span>ASH SALE
                 </h2>
                 <p className="mt-1 text-xs font-semibold text-slate-700 sm:text-sm md:text-base">
                   Penawaran terbatas khusus untuk kamu.
@@ -1255,10 +1221,10 @@ export default function Home() {
         </section>
 
         <section className="mx-auto mt-8 max-w-6xl px-4 md:mt-10">
-          <h2 className="font-display text-[26px] font-extrabold text-slate-900 sm:text-[30px]">
+          <h2 className="font-display text-[21px] font-extrabold text-slate-900 sm:text-[30px]">
             Pilih Produk Favorit Kamu
           </h2>
-          <p className="mt-1 text-sm font-semibold text-slate-600 sm:text-base">
+          <p className="mt-1 text-xs font-semibold text-slate-600 sm:text-base">
             Topzyn menyediakan berbagai produk dengan beragam pilihan yang bisa
             kamu nikmati dengan harga.
           </p>
@@ -1274,7 +1240,7 @@ export default function Home() {
                     type="button"
                     onClick={() => setActiveHomeGroupClass(group.groupClass)}
                     className={[
-                      "shrink-0 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-extrabold transition sm:shrink sm:whitespace-normal",
+                      "shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-xs font-extrabold transition sm:shrink sm:whitespace-normal sm:px-4 sm:py-2.5 sm:text-sm",
                       isActive
                         ? "bg-[#293275] text-white"
                         : "text-slate-500 hover:bg-white hover:text-[#293275]",
@@ -1405,7 +1371,7 @@ export default function Home() {
                   Kalkulator
                 </Link>
                 <Link
-                  href="/riwayat"
+                  href="/invoice"
                   className="mb-2 block text-base text-white transition hover:translate-x-1 font-poppins"
                 >
                   Cek Transaksi

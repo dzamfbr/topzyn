@@ -33,7 +33,7 @@ type NoticeState = {
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "History", href: "/riwayat" },
+  { label: "History", href: "/invoice" },
   { label: "Kalkulator", href: "/kalkulator" },
 ];
 
@@ -332,6 +332,9 @@ export default function HistoryPage() {
 
     setIsChecking(true);
     try {
+      const buildNotFoundUrl = (message: string) =>
+        `/invoice/not-found?code=${encodeURIComponent(normalized)}&message=${encodeURIComponent(message)}`;
+
       const response = await fetch(
         `/api/mlbb/invoice/${encodeURIComponent(normalized)}`,
         {
@@ -342,19 +345,17 @@ export default function HistoryPage() {
       const data = (await response.json()) as InvoiceLookupResponse;
 
       if (!response.ok || data.status !== "ok") {
-        throw new Error(data.message ?? "Kode transaksi tidak ditemukan.");
+        window.location.href = buildNotFoundUrl(
+          data.message ?? "Kode transaksi tidak ditemukan.",
+        );
+        return;
       }
 
       window.location.href = `/invoice/${encodeURIComponent(normalized)}`;
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        title: "Transaksi Tidak Ditemukan",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Kode transaksi tidak valid atau belum tersedia.",
-      });
+    } catch {
+      window.location.href = `/invoice/not-found?code=${encodeURIComponent(normalized)}&message=${encodeURIComponent(
+        "Kode transaksi tidak valid atau belum tersedia.",
+      )}`;
     } finally {
       setIsChecking(false);
     }
@@ -523,7 +524,7 @@ export default function HistoryPage() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="/riwayat"
+          href="/invoice"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-[#293275]"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />
@@ -729,7 +730,7 @@ export default function HistoryPage() {
                   Daftar
                 </Link>
                 <Link
-                  href="/riwayat"
+                  href="/invoice"
                   className="mb-2 block text-base text-white transition hover:translate-x-1"
                 >
                   Cek Transaksi

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -61,7 +61,7 @@ const MLBB_TARGET_STORAGE_PREFIX = "topzyn_mlbb_last_target";
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "/leaderboard" },
-  { label: "History", href: "/riwayat" },
+  { label: "History", href: "/invoice" },
   { label: "Kalkulator", href: "/kalkulator" },
 ];
 
@@ -1335,7 +1335,7 @@ export default function MobileLegendsProductPage() {
           <span>Leaderboard</span>
         </Link>
         <Link
-          href="/riwayat"
+          href="/invoice"
           className="flex flex-1 flex-col items-center gap-1.5 text-xs font-bold text-slate-500"
         >
           <HistoryIcon className="h-[22px] w-[22px]" />

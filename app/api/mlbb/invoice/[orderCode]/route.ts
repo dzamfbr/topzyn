@@ -5,7 +5,11 @@ import {
   ACTIVE_ORDER_COOKIE_MAX_AGE_SECONDS,
   ACTIVE_ORDER_COOKIE_NAME,
 } from "@/lib/order-lock";
-import { getPendingMlbbOrder, isPendingOrderExpired } from "@/lib/pending-order-store";
+import {
+  getPendingMlbbOrder,
+  isPendingOrderExpired,
+  removePendingMlbbOrder,
+} from "@/lib/pending-order-store";
 import { getDbPool } from "@/lib/tidb";
 
 export const runtime = "nodejs";
@@ -178,6 +182,24 @@ export async function GET(
     const pending = getPendingMlbbOrder(orderCode);
     if (pending) {
       const isExpired = isPendingOrderExpired(pending);
+      if (isExpired) {
+        removePendingMlbbOrder(orderCode);
+        const response = NextResponse.json(
+          {
+            status: "error",
+            message:
+              "Invoice tidak ditemukan. Waktu order sudah habis sebelum pembayaran/penyelesaian.",
+          },
+          { status: 404 },
+        );
+        response.cookies.set({
+          name: ACTIVE_ORDER_COOKIE_NAME,
+          value: "",
+          path: "/",
+          maxAge: 0,
+        });
+        return response;
+      }
       const isCashPayment = isCashPaymentMethod(
         pending.payment_method_code ?? pending.payment_method_name,
       );
@@ -186,7 +208,7 @@ export async function GET(
         Math.floor((new Date(pending.expires_at).getTime() - Date.now()) / 1000),
       );
       const statusFlags = toPendingInvoiceStatus({
-        isExpired,
+        isExpired: false,
         isUserConfirmed: pending.payment_confirmed_by_user,
         isCashPayment,
       });
