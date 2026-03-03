@@ -30,6 +30,20 @@ type MlbbCatalogResponse = {
   items?: MlbbCatalogItem[];
 };
 
+type HomeProductGroupClass =
+  | "group-topup"
+  | "group-membership"
+  | "group-voucher";
+
+type HomeProductCardItem = {
+  id: string;
+  title: string;
+  image: string;
+  hoverImage?: string;
+  href: string;
+  groupClass: HomeProductGroupClass;
+};
+
 const NAV_LINKS = [
   { label: "Home", href: "/" },
   { label: "Leaderboard", href: "/leaderboard" },
@@ -57,6 +71,33 @@ const FLASH_SALE_PRODUCT_CODES = [
   "MLDM004",
 ];
 const FLASH_SALE_MARQUEE_DURATION_SECONDS = 28;
+
+const HOME_PRODUCT_GROUP_OPTIONS: Array<{
+  key: string;
+  label: string;
+  groupClass: HomeProductGroupClass;
+}> = [
+  { key: "topup", label: "Top Up Game", groupClass: "group-topup" },
+  {
+    key: "membership",
+    label: "Membership",
+    groupClass: "group-membership",
+  },
+  { key: "voucher", label: "Voucher", groupClass: "group-voucher" },
+];
+
+const HOME_PRODUCT_CARD_ITEMS: HomeProductCardItem[] = [
+  {
+    id: "ml-diamond",
+    title: "Mobile Legends Diamond",
+    image:
+      "/images/topzyn/products/mobile-legends/topzyn-product-mobile-legends-top-up.png",
+    hoverImage:
+      "/images/topzyn/products/mobile-legends/topzyn-product-mobile-legends-top-up-hover.png",
+    href: "/produk/mobile-legends",
+    groupClass: "group-topup",
+  },
+];
 
 function getSecondsUntilNextMidnight(): number {
   const now = new Date();
@@ -384,12 +425,18 @@ export default function Home() {
   const [isFlashSaleLoading, setIsFlashSaleLoading] = useState(true);
   const [flashSaleError, setFlashSaleError] = useState("");
   const [isFlashSalePaused, setIsFlashSalePaused] = useState(false);
+  const [activeHomeGroupClass, setActiveHomeGroupClass] =
+    useState<HomeProductGroupClass>("group-topup");
+  const [isHomeProductsExpanded, setIsHomeProductsExpanded] = useState(false);
+  const [isHomeGroupAnimating, setIsHomeGroupAnimating] = useState(false);
+  const [isHomeRevealAnimating, setIsHomeRevealAnimating] = useState(false);
   const [secondsUntilMidnight, setSecondsUntilMidnight] = useState(0);
 
   const desktopDropdownRef = useRef<HTMLDivElement | null>(null);
   const mobileDropdownRef = useRef<HTMLDivElement | null>(null);
   const desktopToggleRef = useRef<HTMLButtonElement | null>(null);
   const mobileToggleRef = useRef<HTMLButtonElement | null>(null);
+  const hasMountedHomeGroupRef = useRef(false);
 
   useEffect(() => {
     let disposed = false;
@@ -438,6 +485,26 @@ export default function Home() {
       window.history.replaceState({}, "", nextUrl);
     }
   }, []);
+
+  useEffect(() => {
+    setIsHomeProductsExpanded(false);
+    setIsHomeRevealAnimating(false);
+
+    if (!hasMountedHomeGroupRef.current) {
+      hasMountedHomeGroupRef.current = true;
+      return;
+    }
+
+    setIsHomeGroupAnimating(true);
+    const timer = window.setTimeout(() => setIsHomeGroupAnimating(false), 620);
+    return () => window.clearTimeout(timer);
+  }, [activeHomeGroupClass]);
+
+  useEffect(() => {
+    if (!isHomeRevealAnimating) return;
+    const timer = window.setTimeout(() => setIsHomeRevealAnimating(false), 620);
+    return () => window.clearTimeout(timer);
+  }, [isHomeRevealAnimating]);
 
   useEffect(() => {
     if (!showNotification) return;
@@ -604,12 +671,80 @@ export default function Home() {
     Math.floor((secondsUntilMidnight % 3600) / 60),
   ).padStart(2, "0");
   const countdownSeconds = String(secondsUntilMidnight % 60).padStart(2, "0");
+  const filteredHomeProductCards = HOME_PRODUCT_CARD_ITEMS.filter(
+    (card) => card.groupClass === activeHomeGroupClass,
+  );
+  const collapsedHomeProductCountMobile = 6;
+  const collapsedHomeProductCountDesktop = 12;
+  const hasMoreHomeProductsMobile =
+    filteredHomeProductCards.length > collapsedHomeProductCountMobile;
+  const hasMoreHomeProductsDesktop =
+    filteredHomeProductCards.length > collapsedHomeProductCountDesktop;
+  const handleShowMoreHomeProducts = () => {
+    setIsHomeRevealAnimating(true);
+    setIsHomeProductsExpanded(true);
+  };
+
+  const getCollapsedVisibilityClass = (index: number) => {
+    if (isHomeProductsExpanded) {
+      return "";
+    }
+    if (index < collapsedHomeProductCountMobile) {
+      return "";
+    }
+    if (index < collapsedHomeProductCountDesktop) {
+      return "hidden lg:block";
+    }
+    return "hidden";
+  };
+  const getHomeCardAnimationClass = (index: number) => {
+    if (isHomeGroupAnimating) {
+      return "motion-safe:animate-[topzynHomeCardEnter_460ms_cubic-bezier(0.22,1,0.36,1)_both]";
+    }
+
+    if (!isHomeRevealAnimating || !isHomeProductsExpanded) {
+      return "";
+    }
+
+    if (index >= collapsedHomeProductCountDesktop) {
+      return "motion-safe:animate-[topzynHomeCardEnter_420ms_cubic-bezier(0.22,1,0.36,1)_both]";
+    }
+
+    if (index >= collapsedHomeProductCountMobile) {
+      return "motion-safe:animate-[topzynHomeCardEnter_420ms_cubic-bezier(0.22,1,0.36,1)_both] lg:animate-none";
+    }
+
+    return "";
+  };
+  const getHomeCardAnimationStyle = (index: number) => {
+    if (isHomeGroupAnimating) {
+      return {
+        animationDelay: `${Math.min(index, 11) * 42}ms`,
+      };
+    }
+
+    if (!isHomeRevealAnimating || !isHomeProductsExpanded) {
+      return undefined;
+    }
+
+    if (index >= collapsedHomeProductCountDesktop) {
+      return {
+        animationDelay: `${(index - collapsedHomeProductCountDesktop) * 42}ms`,
+      };
+    }
+
+    if (index >= collapsedHomeProductCountMobile) {
+      return {
+        animationDelay: `${(index - collapsedHomeProductCountMobile) * 42}ms`,
+      };
+    }
+
+    return undefined;
+  };
 
   return (
     <div className="min-h-screen bg-white pb-[86px] text-zinc-900 md:pb-0">
-      <nav
-        className="sticky top-0 z-[999] bg-[#293275] shadow-[0_8px_18px_rgba(14,16,22,0.08)]"
-      >
+      <nav className="sticky top-0 z-[999] bg-[#293275] shadow-[0_8px_18px_rgba(14,16,22,0.08)]">
         <div className="mx-auto flex h-[70px] max-w-6xl items-center justify-between gap-4 px-4 md:h-[90px] md:px-6">
           <Link href="/" className="inline-flex items-center">
             <FallbackImage
@@ -1070,7 +1205,7 @@ export default function Home() {
                           <Link
                             key={`flash-item-${item.id}-${item.code}-${index}`}
                             href={getFlashSaleTargetHref(item)}
-                            className="w-[260px] shrink-0 rounded-xl border border-white/80 bg-white px-3 py-2.5 shadow-[0_12px_28px_rgba(17,24,39,0.16)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_30px_rgba(17,24,39,0.2)] sm:w-[300px] sm:rounded-2xl sm:px-3.5 sm:py-3 md:w-[320px] md:px-4"
+                            className="w-[260px] shrink-0 rounded-xl border border-white/80 bg-white px-3 py-2.5 shadow-[0_12px_28px_rgba(17,24,39,0.16)] transform-gpu transition hover:scale-[1.03] hover:shadow-[0_16px_30px_rgba(17,24,39,0.2)] sm:w-[300px] sm:rounded-2xl sm:px-3.5 sm:py-3 md:w-[320px] md:px-4"
                           >
                             <h3 className="line-clamp-2 min-h-[36px] text-[14px] font-extrabold leading-tight text-slate-900 sm:min-h-[42px] sm:text-[16px] md:min-h-[46px] md:text-[18px]">
                               {item.name}
@@ -1117,6 +1252,109 @@ export default function Home() {
               )}
             </div>
           </div>
+        </section>
+
+        <section className="mx-auto mt-8 max-w-6xl px-4 md:mt-10">
+          <h2 className="font-display text-[26px] font-extrabold text-slate-900 sm:text-[30px]">
+            Pilih Produk Favorit Kamu
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-slate-600 sm:text-base">
+            Topzyn menyediakan berbagai produk dengan beragam pilihan yang bisa
+            kamu nikmati dengan harga.
+          </p>
+
+          <div className="mt-5 rounded-full bg-slate-100 p-1.5 sm:p-2">
+            <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex w-max gap-2 sm:grid sm:w-full sm:grid-cols-3 sm:gap-2.5">
+              {HOME_PRODUCT_GROUP_OPTIONS.map((group) => {
+                const isActive = group.groupClass === activeHomeGroupClass;
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    onClick={() => setActiveHomeGroupClass(group.groupClass)}
+                    className={[
+                      "shrink-0 whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-extrabold transition sm:shrink sm:whitespace-normal",
+                      isActive
+                        ? "bg-[#293275] text-white"
+                        : "text-slate-500 hover:bg-white hover:text-[#293275]",
+                    ].join(" ")}
+                  >
+                    {group.label}
+                  </button>
+                );
+              })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-3 gap-x-2 gap-y-4 sm:gap-x-3 sm:gap-y-5 lg:grid-cols-6 lg:gap-x-4 lg:gap-y-6">
+            {filteredHomeProductCards.map((card, index) => (
+              <Link
+                key={`${card.id}-${index}`}
+                href={card.href}
+                data-group-class={card.groupClass}
+                className={[
+                  "group relative isolate block aspect-[2/3] w-full cursor-pointer overflow-hidden rounded-lg",
+                  "[perspective:2500px] [transform-style:preserve-3d]",
+                  getCollapsedVisibilityClass(index),
+                  getHomeCardAnimationClass(index),
+                  card.groupClass,
+                ].join(" ")}
+                style={getHomeCardAnimationStyle(index)}
+              >
+                <div
+                  className={[
+                    "absolute inset-0 z-10 w-full transform-gpu will-change-transform [backface-visibility:hidden] transition-all duration-500",
+                    "before:pointer-events-none before:absolute before:left-0 before:top-0 before:h-full before:w-full before:opacity-0 before:transition-all before:duration-500",
+                    "before:bg-[linear-gradient(to_top,transparent_46%,rgba(12,13,19,0.5)_68%,rgba(12,13,19,1)_97%)]",
+                    "after:pointer-events-none after:absolute after:bottom-0 after:left-0 after:h-20 after:w-full after:opacity-100 after:transition-all after:duration-500",
+                    "after:bg-[linear-gradient(to_bottom,transparent_46%,rgba(12,13,19,0.5)_68%,rgba(12,13,19,1)_97%)]",
+                    "[transform-origin:50%_100%]",
+                    "group-hover:[transform:perspective(900px)_rotateX(16deg)_scale(1.01)]",
+                    "group-hover:before:opacity-100",
+                    "group-hover:after:h-[120px]",
+                  ].join(" ")}
+                >
+                  <FallbackImage
+                    src={card.image}
+                    alt={card.title}
+                    className="h-full w-full object-cover transform-gpu will-change-transform transition-all duration-500 group-hover:scale-[1.02] group-hover:brightness-75 group-hover:blur-[4px]"
+                  />
+                </div>
+
+                <FallbackImage
+                  src={card.hoverImage ?? card.image}
+                  alt={`${card.title} hover`}
+                  className="pointer-events-none absolute inset-0 z-30 h-full w-full object-cover opacity-0 translate-y-6 scale-[1.04] transform-gpu will-change-transform transition-all duration-500 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100"
+                />
+              </Link>
+            ))}
+          </div>
+
+          {!isHomeProductsExpanded && hasMoreHomeProductsMobile ? (
+            <div className="mt-6 flex justify-center lg:hidden">
+              <button
+                type="button"
+                onClick={handleShowMoreHomeProducts}
+                className="inline-flex items-center justify-center rounded-full bg-[#293275] px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#1f265f]"
+              >
+                Tampilkan Lainnya
+              </button>
+            </div>
+          ) : null}
+
+          {!isHomeProductsExpanded && hasMoreHomeProductsDesktop ? (
+            <div className="mt-6 hidden justify-center lg:flex">
+              <button
+                type="button"
+                onClick={handleShowMoreHomeProducts}
+                className="inline-flex items-center justify-center rounded-full bg-[#293275] px-6 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#1f265f]"
+              >
+                Tampilkan Lainnya
+              </button>
+            </div>
+          ) : null}
         </section>
       </main>
 
@@ -1266,8 +1504,20 @@ export default function Home() {
           }
         }
 
+        @keyframes topzynHomeCardEnter {
+          0% {
+            opacity: 0;
+            transform: translateY(16px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
         @media (prefers-reduced-motion: reduce) {
-          [style*="topzynFlashSaleMarquee"] {
+          [style*="topzynFlashSaleMarquee"],
+          [class*="topzynHomeCardEnter"] {
             animation: none !important;
           }
         }
