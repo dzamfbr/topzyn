@@ -18,6 +18,10 @@ type CompletedOrderRow = RowDataPacket & {
   order_number: string;
   game_user_id: string;
   game_server: string;
+  item_code: string;
+  promo_code: string | null;
+  promo_discount: number | string | null;
+  subtotal_amount: number | string | null;
   total_amount: number | string;
   status: string;
   created_at: string;
@@ -25,6 +29,34 @@ type CompletedOrderRow = RowDataPacket & {
   payment_method_code: string;
   payment_method_name: string;
 };
+
+function toAmount(value: number | string | null | undefined): number {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function resolveProductName(itemCode: string): string {
+  const normalizedCode = itemCode.trim().toUpperCase();
+  if (normalizedCode.startsWith("FF")) {
+    return "Free Fire";
+  }
+  return "Mobile Legends (MLBB)";
+}
+
+function resolveTargetLabel(gameUserId: string, gameServer: string, itemCode: string): string {
+  const normalizedCode = itemCode.trim().toUpperCase();
+  if (normalizedCode.startsWith("FF")) {
+    return gameUserId.trim() || "-";
+  }
+
+  const userId = gameUserId.trim() || "-";
+  const server = gameServer.trim();
+  if (!server) {
+    return userId;
+  }
+
+  return `${userId} (${server})`;
+}
 
 function formatDate(value: string | Date): string {
   const date = value instanceof Date ? value : new Date(value);
@@ -217,11 +249,18 @@ export async function GET(
         invoice: {
           code: pending.order_number,
           date: formatDate(pending.created_at),
-          product: "Mobile Legends (MLBB)",
+          product: resolveProductName(pending.item_code),
           item: pending.item_name,
-          target: `${pending.game_user_id} (${pending.game_server})`,
+          target: resolveTargetLabel(
+            pending.game_user_id,
+            pending.game_server,
+            pending.item_code,
+          ),
           payment_method_code: pending.payment_method_code,
           payment_method: pending.payment_method_name,
+          promo_code: pending.promo_code,
+          promo_discount: Number(pending.promo_discount),
+          subtotal: Number(pending.subtotal_amount),
           total: Number(pending.total_amount),
           pay_url: buildAdminPayUrl(
             pending.order_number,
@@ -258,6 +297,10 @@ export async function GET(
           o.order_number,
           o.game_user_id,
           o.game_server,
+          i.code AS item_code,
+          o.promo_code,
+          o.promo_discount,
+          o.subtotal_amount,
           o.total_amount,
           o.status,
           o.created_at,
@@ -290,21 +333,28 @@ export async function GET(
     const row = rows[0];
     const statusFlags = toStatusFlags(row.status);
     const isDone = statusFlags.transaction_status_code === "done";
+    const subtotalAmount = toAmount(row.subtotal_amount);
+    const promoDiscount = toAmount(row.promo_discount);
+    const totalAmount = toAmount(row.total_amount);
     const response = NextResponse.json({
       status: "ok",
       invoice: {
         code: row.order_number,
         date: formatDate(row.created_at),
-        product: "Mobile Legends (MLBB)",
+        product: resolveProductName(row.item_code),
         item: row.item_name,
-        target: `${row.game_user_id} (${row.game_server})`,
+        target: resolveTargetLabel(row.game_user_id, row.game_server, row.item_code),
         payment_method_code: row.payment_method_code,
         payment_method: row.payment_method_name,
-        total: Number(row.total_amount),
+        promo_code: row.promo_code,
+        promo_discount: promoDiscount,
+        subtotal:
+          subtotalAmount > 0 ? subtotalAmount : Math.max(0, totalAmount + promoDiscount),
+        total: totalAmount,
         pay_url: buildAdminPayUrl(
           row.order_number,
           row.item_name,
-          Number(row.total_amount),
+          totalAmount,
         ),
         pay_route: "",
         qris_uploaded: false,

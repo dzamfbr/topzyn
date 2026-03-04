@@ -21,7 +21,7 @@ type MlbbCatalogItem = {
   code: string;
   name: string;
   image_url: string;
-  base_price: number;
+  base_price: number | null;
   final_price: number;
   discount_percent: number;
 };
@@ -31,10 +31,7 @@ type MlbbCatalogResponse = {
   items?: MlbbCatalogItem[];
 };
 
-type HomeProductGroupClass =
-  | "group-topup"
-  | "group-membership"
-  | "group-voucher";
+type HomeProductGroupClass = "group-topup" | "group-joki" | "group-voucher";
 
 type HomeProductCardItem = {
   id: string;
@@ -80,9 +77,9 @@ const HOME_PRODUCT_GROUP_OPTIONS: Array<{
 }> = [
   { key: "topup", label: "Top Up Game", groupClass: "group-topup" },
   {
-    key: "membership",
-    label: "Membership",
-    groupClass: "group-membership",
+    key: "joki",
+    label: "Joki",
+    groupClass: "group-joki",
   },
   { key: "voucher", label: "Voucher", groupClass: "group-voucher" },
 ];
@@ -96,6 +93,56 @@ const HOME_PRODUCT_CARD_ITEMS: HomeProductCardItem[] = [
     hoverImage:
       "/images/topzyn/products/mobile-legends/topzyn-product-mobile-legends-top-up-hover.png",
     href: "/produk/mobile-legends",
+    groupClass: "group-topup",
+  },
+  {
+    id: "ff-diamond",
+    title: "Free Fire Diamond",
+    image:
+      "/images/topzyn/products/free-fire/topzyn-product-free-fire-top-up.png",
+    hoverImage:
+      "/images/topzyn/products/free-fire/topzyn-product-free-fire-top-up-hover.png",
+    href: "/produk/free-fire",
+    groupClass: "group-topup",
+  },
+  {
+    id: "gi-diamond",
+    title: "Genshin Impact Diamond",
+    image:
+      "/images/topzyn/products/genshin-impact/topzyn-product-genshin-impact-top-up.png",
+    hoverImage:
+      "/images/topzyn/products/genshin-impact/topzyn-product-genshin-impact-top-up-hover.png",
+    href: "/produk/free-fire",
+    groupClass: "group-topup",
+  },
+  {
+    id: "pm-diamond",
+    title: "PUBG Mobile Diamond",
+    image:
+      "/images/topzyn/products/pubg-mobile/topzyn-product-pubg-mobile-top-up.png",
+    hoverImage:
+      "/images/topzyn/products/pubg-mobile/topzyn-product-pubg-mobile-top-up-hover.png",
+    href: "/produk/free-fire",
+    groupClass: "group-topup",
+  },
+  {
+    id: "mc-diamond",
+    title: "Magic Chess Diamond",
+    image:
+      "/images/topzyn/products/magic-chess/topzyn-product-magic-chess-top-up.png",
+    hoverImage:
+      "/images/topzyn/products/magic-chess/topzyn-product-magic-chess-top-up-hover.png",
+    href: "/produk/free-fire",
+    groupClass: "group-topup",
+  },
+  {
+    id: "ffmax-diamond",
+    title: "Free Fire Max Diamond",
+    image:
+      "/images/topzyn/products/free-fire-max/topzyn-product-free-fire-max-top-up.png",
+    hoverImage:
+      "/images/topzyn/products/free-fire-max/topzyn-product-free-fire-max-top-up-hover.png",
+    href: "/produk/free-fire",
     groupClass: "group-topup",
   },
 ];
@@ -158,7 +205,11 @@ function getDisplayDiscountPercent(item: MlbbCatalogItem): number {
     return Math.floor(item.discount_percent);
   }
 
-  if (item.base_price <= 0 || item.final_price >= item.base_price) {
+  if (
+    item.base_price === null ||
+    item.base_price <= 0 ||
+    item.final_price >= item.base_price
+  ) {
     return 0;
   }
 
@@ -170,13 +221,6 @@ function getDisplayDiscountPercent(item: MlbbCatalogItem): number {
 
 function getFlashSaleTargetHref(item: MlbbCatalogItem): string {
   const code = (item.code ?? "").trim().toUpperCase();
-
-  // Flash sale currently serves MLBB catalog. Keep this mapper explicit so
-  // future product routes can be added by code prefix.
-  if (code.startsWith("ML")) {
-    return `/produk/mobile-legends?item=${encodeURIComponent(code)}`;
-  }
-
   return `/produk/mobile-legends?item=${encodeURIComponent(code)}`;
 }
 
@@ -210,7 +254,11 @@ function FallbackImage({
       loading={loading}
       fetchPriority={fetchPriority}
       decoding={decoding}
-      onError={() => setCurrentSrc("/next.svg")}
+      onError={() =>
+        setCurrentSrc(
+          "/images/topzyn/placeholders/topzyn-placeholder-square-1000x1000.jpg",
+        )
+      }
     />
   );
 }
@@ -1198,9 +1246,11 @@ export default function Home() {
                                     {formatRupiah(item.final_price)}
                                   </p>
                                 </div>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-500 line-through sm:text-[13px] md:text-[15px]">
-                                  {formatRupiah(item.base_price)}
-                                </p>
+                                {item.base_price !== null ? (
+                                  <p className="mt-1 text-[12px] font-semibold text-slate-500 line-through sm:text-[13px] md:text-[15px]">
+                                    {formatRupiah(item.base_price)}
+                                  </p>
+                                ) : null}
                               </div>
                             </div>
 
@@ -1232,24 +1282,24 @@ export default function Home() {
           <div className="mt-5 rounded-full bg-slate-100 p-1.5 sm:p-2">
             <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <div className="flex w-max gap-2 sm:grid sm:w-full sm:grid-cols-3 sm:gap-2.5">
-              {HOME_PRODUCT_GROUP_OPTIONS.map((group) => {
-                const isActive = group.groupClass === activeHomeGroupClass;
-                return (
-                  <button
-                    key={group.key}
-                    type="button"
-                    onClick={() => setActiveHomeGroupClass(group.groupClass)}
-                    className={[
-                      "shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-xs font-extrabold transition sm:shrink sm:whitespace-normal sm:px-4 sm:py-2.5 sm:text-sm",
-                      isActive
-                        ? "bg-[#293275] text-white"
-                        : "text-slate-500 hover:bg-white hover:text-[#293275]",
-                    ].join(" ")}
-                  >
-                    {group.label}
-                  </button>
-                );
-              })}
+                {HOME_PRODUCT_GROUP_OPTIONS.map((group) => {
+                  const isActive = group.groupClass === activeHomeGroupClass;
+                  return (
+                    <button
+                      key={group.key}
+                      type="button"
+                      onClick={() => setActiveHomeGroupClass(group.groupClass)}
+                      className={[
+                        "shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-xs font-extrabold transition sm:shrink sm:whitespace-normal sm:px-4 sm:py-2.5 sm:text-sm",
+                        isActive
+                          ? "bg-[#293275] text-white"
+                          : "text-slate-500 hover:bg-white hover:text-[#293275]",
+                      ].join(" ")}
+                    >
+                      {group.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

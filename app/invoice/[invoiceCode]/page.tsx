@@ -19,6 +19,9 @@ type InvoiceResponse = {
     target: string;
     payment_method_code?: string;
     payment_method: string;
+    promo_code: string | null;
+    promo_discount: number;
+    subtotal: number;
     total: number;
     payment_status: string;
     payment_status_code: "pending" | "paid";
@@ -551,7 +554,12 @@ function formatPurchaseDate(
   return `${day} ${month} ${year}\npukul ${hour}:${minute}:${second}`;
 }
 
-function resolveInvoiceProductImage(itemName: string): string {
+function resolveInvoiceProductImage(itemName: string, productName = ""): string {
+  const productNormalized = productName.trim().toLowerCase();
+  if (productNormalized.includes("free fire")) {
+    return "/images/topzyn/products/free-fire/topzyn-free-fire-diamond-item.png";
+  }
+
   const normalized = itemName.trim().toLowerCase();
   if (normalized.includes("weekly") || normalized.includes("wdp")) {
     return "/images/topzyn/products/mobile-legends/topzyn-mobile-legends-weekly-diamond-pass.png";
@@ -745,22 +753,6 @@ export default function InvoicePage() {
     remainingSeconds,
   ]);
 
-  const countdownText = useMemo(() => {
-    if (!invoice?.expires_at) {
-      return "-";
-    }
-    if (remainingSeconds <= 0) {
-      return "00:00:00";
-    }
-    const hour = String(Math.floor(remainingSeconds / 3600)).padStart(2, "0");
-    const minute = String(Math.floor((remainingSeconds % 3600) / 60)).padStart(
-      2,
-      "0",
-    );
-    const second = String(remainingSeconds % 60).padStart(2, "0");
-    return `${hour}:${minute}:${second}`;
-  }, [invoice?.expires_at, remainingSeconds]);
-
   const orderProgressCountdownUnits = useMemo(() => {
     const safeSeconds = Math.max(0, orderProgressSeconds);
     const hour = String(Math.floor(safeSeconds / 3600)).padStart(2, "0");
@@ -842,8 +834,8 @@ export default function InvoicePage() {
   }, [invoice?.created_at, invoice?.date]);
 
   const invoiceProductImage = useMemo(() => {
-    return resolveInvoiceProductImage(invoice?.item ?? "");
-  }, [invoice?.item]);
+    return resolveInvoiceProductImage(invoice?.item ?? "", invoice?.product ?? "");
+  }, [invoice?.item, invoice?.product]);
 
   const displayProductName = useMemo(() => {
     if (!invoice?.product) {
@@ -1207,7 +1199,20 @@ export default function InvoicePage() {
                       Price
                     </p>
                     <p className="text-right text-sm font-semibold text-[#ff711c] sm:text-lg">
-                      {formatRupiah(invoice.total)}
+                      {formatRupiah(invoice.subtotal)}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                    <p className="text-sm font-medium text-slate-500 sm:text-base">
+                      Kode Promo
+                    </p>
+                    <p
+                      className={[
+                        "text-right text-sm font-semibold sm:text-lg",
+                        invoice.promo_code ? "text-[#293275]" : "text-slate-500",
+                      ].join(" ")}
+                    >
+                      {invoice.promo_code ?? "-"}
                     </p>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
@@ -1215,7 +1220,9 @@ export default function InvoicePage() {
                       Diskon
                     </p>
                     <p className="text-right text-sm font-semibold text-[#293275] sm:text-lg">
-                      0%
+                      {invoice.promo_discount > 0
+                        ? `- ${formatRupiah(invoice.promo_discount)}`
+                        : formatRupiah(0)}
                     </p>
                   </div>
                   <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
@@ -1334,21 +1341,6 @@ export default function InvoicePage() {
                   >
                     {invoice.transaction_status}
                   </span>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2.5">
-                  <p className="text-xs text-slate-500 sm:text-sm">
-                    {isCashPayment ? "Payment Flow" : "Batas Orderan"}
-                  </p>
-                  <p
-                    className={[
-                      "mt-1 text-sm font-bold sm:text-lg",
-                      !isCashPayment && remainingSeconds <= 0
-                        ? "text-red-600"
-                        : "text-slate-900",
-                    ].join(" ")}
-                  >
-                    {isCashPayment ? "Manual Cash" : countdownText}
-                  </p>
                 </div>
               </div>
             </aside>

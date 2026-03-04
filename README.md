@@ -1,6 +1,6 @@
 # TopZyn Next.js
 
-TopZyn home page built with Next.js App Router + Tailwind CSS.
+TopZyn storefront built with Next.js App Router + Tailwind CSS.
 
 ## Run locally
 
@@ -13,5 +13,9 @@ Open `http://localhost:3000`.
 
 ## Key files
 
-- `app/page.tsx`: Home UI and product rendering
-- `lib/home-products.ts`: shared product types + fallback products
+- `app/page.tsx`: Home UI, banner, flash sale, and product cards
+- `app/produk/mobile-legends/page.tsx`: MLBB product page
+- `app/produk/free-fire/page.tsx`: Free Fire product page
+- `app/api/mlbb/catalog/route.ts`: MLBB catalog API
+- `app/api/ff/catalog/route.ts`: Free Fire catalog API
+- `lib/tidb.ts`: MySQL/TiDB connection pool

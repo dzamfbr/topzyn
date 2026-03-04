@@ -15,6 +15,7 @@ import {
 import { getDbPool } from "@/lib/tidb";
 
 export const runtime = "nodejs";
+const PAYMENT_EXPIRATION_SECONDS = 2 * 60 * 60;
 
 type MlbbOrderBody = {
   game_user_id?: string;
@@ -341,7 +342,9 @@ export async function POST(request: NextRequest) {
       payment_confirmed_by_user: false,
       payment_confirmed_at: null,
       created_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      expires_at: new Date(
+        Date.now() + PAYMENT_EXPIRATION_SECONDS * 1000,
+      ).toISOString(),
     };
     savePendingMlbbOrder(pendingOrder);
 

@@ -20,7 +20,7 @@ type MlbbItem = {
   code: string;
   name: string;
   image_url: string;
-  base_price: number;
+  base_price: number | null;
   final_price: number;
   discount_percent: number;
 };
@@ -864,9 +864,11 @@ export default function MobileLegendsProductPage() {
             </span>
           ) : null}
         </div>
-        <p className="text-[10px] text-slate-400 line-through sm:text-xs">
-          {formatRupiah(item.base_price)}
-        </p>
+        {item.base_price !== null ? (
+          <p className="text-[10px] text-slate-400 line-through sm:text-xs">
+            {formatRupiah(item.base_price)}
+          </p>
+        ) : null}
       </div>
     </button>
   );
@@ -1022,7 +1024,7 @@ export default function MobileLegendsProductPage() {
 
       <main className="relative px-3 sm:px-4">
         <section className="mx-auto mt-6 max-w-6xl sm:mt-7">
-          <article className="relative overflow-hidden rounded-2xl border border-white/40 bg-[url('/images/topzyn/backgrounds/topzyn-home-banner-background-desktop.jpg')] bg-cover bg-center p-4 text-white shadow-[0_24px_50px_rgba(41,50,117,0.32)] sm:p-6 md:p-7">
+          <article className="relative overflow-hidden rounded-2xl border border-white/40 bg-[url('/images/topzyn/bg.png')] bg-cover bg-center p-4 text-white shadow-[0_24px_50px_rgba(41,50,117,0.32)] sm:p-6 md:p-7">
             <div className="absolute inset-0 bg-gradient-to-r from-[#0d1030]/75 to-[#293275]/70" />
             <div className="absolute -left-10 top-5 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
             <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#ff711c]/25 blur-2xl" />
@@ -1068,8 +1070,8 @@ export default function MobileLegendsProductPage() {
               </li>
               <li>
                 Pilih metode pembayaran yang tersedia dan paling nyaman untuk
-                kamu gunakan. Kami menyediakan beberapa opsi pembayaran yang aman
-                dan mudah.
+                kamu gunakan. Kami menyediakan beberapa opsi pembayaran yang
+                aman dan mudah.
               </li>
               <li>
                 Masukkan nomor WhatsApp yang aktif dan dapat dihubungi. Nomor
@@ -1170,10 +1172,7 @@ export default function MobileLegendsProductPage() {
               )}
             </section>
 
-            <section
-              ref={paymentSectionRef}
-              className={sectionCardClass}
-            >
+            <section ref={paymentSectionRef} className={sectionCardClass}>
               <h3 className="text-base font-bold tracking-tight text-[#1f285f] sm:text-lg">
                 3. Metode Pembayaran
               </h3>
@@ -1688,4 +1687,3 @@ export default function MobileLegendsProductPage() {
     </div>
   );
 }
-

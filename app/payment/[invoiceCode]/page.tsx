@@ -266,7 +266,7 @@ export default function PaymentPage() {
         <p className="mt-1 text-center text-sm text-slate-500">Kode: {payment.order_number}</p>
         {paymentKind !== "cash" ? (
           <p className="mt-1 text-center text-sm text-slate-500">
-            Batas pembayaran: <strong>{countdownText}</strong>
+            Batas pembayaran (2 jam): <strong>{countdownText}</strong>
           </p>
         ) : (
           <p className="mt-1 text-center text-sm text-slate-500">

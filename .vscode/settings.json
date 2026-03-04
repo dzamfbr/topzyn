@@ -1,0 +1,20 @@
+{
+  "sqltools.connections": [
+    {
+      "name": "TopZyn TiDB",
+      "driver": "MySQL",
+      "previewLimit": 50,
+      "server": "gateway01.ap-southeast-1.prod.aws.tidbcloud.com",
+      "port": 4000,
+      "database": "topzyn",
+      "username": "3yLZhqJnapJVP97.root",
+      "password": "MdAh0ZGj5ZSuA9It",
+      "askForPassword": false,
+      "mysqlOptions": {
+        "ssl": {
+          "rejectUnauthorized": true
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-﻿import type { RowDataPacket } from "mysql2/promise";
+import type { RowDataPacket } from "mysql2/promise";
 import { NextResponse } from "next/server";
 
 import { getDbPool } from "@/lib/tidb";
@@ -25,6 +25,14 @@ const LEGACY_IMAGE_MAP: Record<string, string> = {
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function pickString(row: GenericRow, keys: string[], fallback = ""): string {
@@ -68,6 +76,7 @@ export async function GET() {
       `
         SELECT *
         FROM mlbb_topup_item
+        WHERE UPPER(code) LIKE 'ML%'
         ORDER BY id ASC
       `,
     );
@@ -83,10 +92,10 @@ export async function GET() {
     const mappedItems = itemRows
       .filter(isRowActive)
       .map((item) => {
-        const basePrice = toNumber(item.base_price ?? item.price ?? 0);
         const finalPrice = toNumber(
           item.final_price ?? item.price ?? item.base_price ?? 0,
         );
+        const basePrice = toNullableNumber(item.base_price ?? item.price);
         const fallbackImage =
           "/images/topzyn/products/mobile-legends/topzyn-mobile-legends-diamond-item.png";
         return {
@@ -152,3 +161,4 @@ export async function GET() {
     );
   }
 }
+
